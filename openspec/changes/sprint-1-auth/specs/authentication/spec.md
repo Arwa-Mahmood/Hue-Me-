@@ -1,7 +1,5 @@
 ## ADDED Requirements
 
-Endpoints, password rules, claims, reset-link rules and error shapes are defined in `openspec/contracts/auth.md`. SRS stories: US1-US5.
-
 ### Requirement: Signup
 The system SHALL let a visitor create an account with name, email and password (US1), SHALL require a password of at least 8 characters and at most 72 UTF-8 bytes, SHALL store only a bcrypt hash of the password, SHALL always assign the role `user`, and SHALL issue a JWT on success.
 

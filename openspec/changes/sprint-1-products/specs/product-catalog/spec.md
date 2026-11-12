@@ -1,7 +1,5 @@
 ## ADDED Requirements
 
-Routes and payloads are defined in `openspec/contracts/products-api.md`.
-
 ### Requirement: Admin product management
 The system SHALL let an admin add, edit and remove products with brand, product name and category (`foundation`, `concealer`, `lipstick` or `blush`), and SHALL refuse these actions for anyone else.
 

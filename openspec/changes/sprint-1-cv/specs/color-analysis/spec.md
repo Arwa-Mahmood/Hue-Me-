@@ -1,7 +1,5 @@
 ## ADDED Requirements
 
-Numeric formulas, thresholds, tables, photo rules, payload and error rules are defined in `openspec/contracts/cv.md`. This spec states the required behaviour and must not contradict it. SRS stories: US6-US10.
-
 ### Requirement: Hex to LAB conversion
 The system SHALL convert a hex colour string (`#RRGGBB` or `RRGGBB`) to a CIELAB `Lab` value using sRGB, D65 and the 2-degree observer, and SHALL reject any other input with a `ValueError`.
 
