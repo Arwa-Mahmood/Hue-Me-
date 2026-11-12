@@ -1,7 +1,5 @@
 ## ADDED Requirements
 
-Numeric formulas, thresholds, tables and error rules are defined in `openspec/contracts/cv.md`. This spec states the required behaviour and must not contradict it.
-
 ### Requirement: Hex to LAB conversion
 The system SHALL convert a hex colour string (`#RRGGBB` or `RRGGBB`) to a CIELAB `Lab` value using sRGB, D65 and the 2-degree observer, and SHALL reject any other input with a `ValueError`.
 
@@ -70,14 +68,96 @@ The system SHALL provide `delta_e(lab1, lab2)` as the CIE76 Euclidean distance, 
 - **THEN** a `ValueError` is raised
 
 ### Requirement: Purity
-The functions SHALL be deterministic and SHALL NOT perform I/O or depend on a database, authentication, web framework or UI.
+The colour functions SHALL be deterministic and SHALL NOT perform I/O or depend on a database, authentication, web framework, UI, generative AI or LLM. Only the photo module MAY depend on MediaPipe, OpenCV and NumPy.
 
 #### Scenario: Repeated call
 - **WHEN** the same input is passed twice
 - **THEN** the outputs are equal
 
+#### Scenario: Core without CV libraries
+- **WHEN** MediaPipe and OpenCV are not installed
+- **THEN** `hex_to_lab`, `analyze_skin` and the CSV script still import and run
+
+### Requirement: Complete analysis
+The system SHALL provide `analyze_skin(skin_hex, undertone_override=None)` that returns LAB, ITA, depth, undertone, season, confidence, explanation, palette, a `corrected` flag and rule versions, and SHALL be the single analysis path for manual, swatch, photo and corrected input (US7, US8).
+
+#### Scenario: Manual hex
+- **WHEN** `analyze_skin` is called with a valid skin hex whose depth is not `undetermined`
+- **THEN** every field of `Analysis` is filled and `corrected` is false
+
+#### Scenario: Undetermined depth
+- **WHEN** the skin hex gives depth `undetermined`
+- **THEN** a `ValueError` is raised and no season, palette or explanation is returned
+
+### Requirement: Confidence indicator
+The system SHALL report confidence as `high`, `medium` or `low` from the margin to the nearest depth and undertone boundaries using the team-approved, versioned rule, and SHALL NOT present it as a probability (US8).
+
+#### Scenario: Near a depth boundary
+- **WHEN** the ITA angle is within 1.0 degree of a depth boundary
+- **THEN** confidence is `low`
+
+#### Scenario: Far from all boundaries
+- **WHEN** the depth margin and undertone margin are both at or above the approved high thresholds
+- **THEN** confidence is `high`
+
+### Requirement: Template explanation
+The system SHALL explain how the season was derived using the approved fixed template, including the ITA angle, depth, undertone and season, and SHALL always end with the statement that the result is a styling guide, not a medical or dermatological assessment (US8).
+
+#### Scenario: Explanation filled
+- **WHEN** an analysis succeeds
+- **THEN** the explanation names the depth, undertone and season of that analysis and contains the disclaimer
+
+#### Scenario: Override noted
+- **WHEN** an undertone override was used
+- **THEN** the explanation says the undertone was set by the user
+
+### Requirement: Wear and avoid palette
+The system SHALL return, for each season, the approved ordered lists of colours to wear and to avoid, where every entry has an uppercase hex and a nonempty text label (US9).
+
+#### Scenario: Labels present
+- **WHEN** a palette is returned for any of the four seasons
+- **THEN** every wear and avoid entry has both a hex and a name
+
+#### Scenario: No contradiction
+- **WHEN** the palettes are checked
+- **THEN** no colour appears in both the wear and avoid list of the same season
+
+### Requirement: Corrected tone
+The system SHALL accept an optional undertone override, SHALL recompute the season, confidence, palette and explanation from it, and SHALL mark the analysis as corrected (US10).
+
+#### Scenario: Override applied
+- **WHEN** `analyze_skin` is called with `undertone_override = "cool"`
+- **THEN** the undertone is `cool`, the season comes from the approved table for `cool` and the depth, and `corrected` is true
+
+#### Scenario: Invalid override
+- **WHEN** the override is not one of the four undertone values
+- **THEN** a `ValueError` is raised
+
+### Requirement: Selfie skin sampling
+The system SHALL accept a JPEG or PNG image as bytes, SHALL detect exactly one face with MediaPipe Face Mesh, SHALL sample skin from the approved cheek and forehead regions using OpenCV, SHALL return the median skin colour as an uppercase hex, and SHALL NOT store the image anywhere (US6).
+
+#### Scenario: One face
+- **WHEN** `extract_skin_hex` receives a clear selfie with one face
+- **THEN** it returns a `SkinSample` with an uppercase `#RRGGBB` and at least the minimum pixel count
+
+#### Scenario: No face or several faces
+- **WHEN** the image contains no face or more than one face
+- **THEN** a `PhotoError` with code `no_face` or `multiple_faces` is raised
+
+#### Scenario: Unsupported file
+- **WHEN** the bytes are not a decodable JPEG or PNG
+- **THEN** a `PhotoError` with code `unsupported_format` is raised
+
+#### Scenario: Image discarded
+- **WHEN** `extract_skin_hex` runs
+- **THEN** no file is created and the image is not logged or kept after the call
+
+#### Scenario: Same output as manual entry
+- **WHEN** the hex returned from a photo is passed to `analyze_skin`, and the same hex is typed manually
+- **THEN** both analyses are identical
+
 ### Requirement: CSV LAB enrichment
-The system SHALL provide a script that reads a CSV with columns `brand,product_name,category,shade_name,hex,buy_link`, appends `lab_l,lab_a,lab_b`, preserves all source data, and publishes output only if every row is valid.
+As preparation for Sprint 2 shade matching, the system SHALL provide a script that reads a CSV with columns `brand,product_name,category,shade_name,hex,buy_link`, appends `lab_l,lab_a,lab_b`, preserves all source data, and publishes output only if every row is valid.
 
 #### Scenario: Valid file
 - **WHEN** the script runs on a valid CSV
