@@ -1,0 +1,41 @@
+schema: spec-driven
+
+context: |
+  Project: Hue Me - a makeup shade recommendation app. A user supplies skin (and optionally
+  hair/eye) colours as hex; the system derives CIELAB, ITA depth, undertone and colour season,
+  and (Sprint 2) matches them to product shades.
+
+  Sprint 1 is split across four people with independent folders:
+    P1  /cv                 pure-Python colour analysis + CSV enrichment CLI
+    P2  /backend/auth       signup/login/JWT/OTP reset, tables: users, otp; also repo + docker-compose
+    P3  /backend/products   products/shades admin CRUD, profile endpoint, CSV import; tables: products, shades, profiles
+    P4  /frontend           wireframes + all user/admin screens, built against a mock API until Day 4
+
+  Proposed stack (not yet fixed by the team; confirm on Day 1): Python 3.11+, FastAPI, PostgreSQL,
+  bcrypt, JWT. Frontend stack is chosen by P4 on Day 1.
+
+  Shared interface contracts live in openspec/contracts/ and take precedence over any change
+  document. Team process documents live in openspec/team/.
+
+  Conventions:
+    - API base path /api/v1, JSON, snake_case field names.
+    - Never commit secrets, real passwords or credentials. Use environment variables and .env.example.
+    - Test results are recorded only after they are actually run. Use "Not run" otherwise.
+
+rules:
+  proposal:
+    - State the owner (P1-P4) and the folder the change may write to.
+    - Include a "Non-goals" section.
+  tasks:
+    - Every task has an owner tag and a day, for example "[P1][Day 2]".
+    - Include test-case and test-result tasks.
+    - Leave all boxes unchecked until the work is actually done.
+  specs:
+    - Use SHALL/MUST and at least one WHEN/THEN scenario per requirement.
+    - Do not contradict openspec/contracts/*.md; reference them instead of copying values.
+
+operations:
+  apply:
+    guidance:
+      - Only write inside the folder owned by the change owner, plus the shared team documents.
+      - Record test evidence in openspec/team/test-results.md only after running the tests.
