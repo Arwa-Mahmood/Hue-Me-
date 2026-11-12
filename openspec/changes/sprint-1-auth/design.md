@@ -1,37 +1,45 @@
 ## Context
 
-`openspec/contracts/auth.md` fixes endpoints, token claims, error envelope and environment variable names. This design covers the data model, security choices and the Day 1 repo setup.
+`openspec/contracts/auth.md` fixes endpoints, password rules, token claims, reset-link behaviour, preferences, the deletion hook, the error envelope and environment variable names. This design covers the data model, security choices, the shared backend app and deployment.
 
 ## Goals / Non-Goals
 
 **Goals**
-- Safe credential handling: hashed passwords, hashed OTPs, no secrets in Git.
+- Safe credential handling: hashed passwords, hashed reset tokens, no secrets in Git.
 - A small importable token validator for P3.
-- A working `docker compose up` on Day 1 for everyone.
+- A working `docker compose up` on Day 1 for everyone, and a free-tier Railway deployment on Day 4.
+- A complete data wipe on account deletion (US5).
 
 **Non-Goals**
 - Anything in the proposal's Non-goals list.
 
 ## Decisions
 
-- **Stack (proposed, confirm Day 1):** Python, FastAPI, PostgreSQL, `bcrypt`, `PyJWT`.
-- **Layout:** `backend/auth/` with `app/` (routes, models, security, mail), `tests/`, `requirements.txt`, `Dockerfile`.
+- **Stack (SRS):** Python 3.11+, FastAPI, PostgreSQL, `bcrypt`, `PyJWT`.
+- **One backend app:** `backend/main.py` creates the FastAPI app, installs the shared error-envelope handlers and CORS (`CORS_ORIGINS`), and mounts `backend/auth` and `backend/products` routers under `/api/v1`. One process keeps Railway's free tier simple and lets P3 import `decode_access_token` and P2 call `delete_user_data` directly.
+- **Layout:** `backend/auth/` with `app/` (routes, models, security, mail, preferences, deletion), `tests/`; `backend/main.py`; `backend/requirements.txt`; `backend/Dockerfile`.
 - **`users`:** `id` UUID, `email` (unique, stored lowercase), `name`, `password_hash`, `role` (`user`|`admin`), `token_version` int, `created_at`, `updated_at`.
-- **`otp`:** `id`, `user_id`, `code_hash`, `purpose` (`password_reset`), `expires_at`, `used_at` null, `attempts` int, `created_at`.
-- **Passwords:** bcrypt. Reject passwords over 72 UTF-8 bytes rather than truncating. Minimum length decided Day 1 (proposal: 8).
-- **OTP:** 6 digits from a secure random source, stored only as a hash, valid for `OTP_TTL_MINUTES` (proposal: 10), single use, a new code invalidates earlier ones, limited guesses (proposal: 5) and limited requests per email per hour. Consumption and password update happen in one transaction.
+- **`password_resets`:** `id`, `user_id -> users.id ON DELETE CASCADE`, `token_hash` (SHA-256 of the high-entropy token), `expires_at`, `used_at` null, `created_at`.
+- **`preferences`:** `user_id PRIMARY KEY -> users.id ON DELETE CASCADE`, `font_size`, `theme`, `colour_blind_mode`, `high_contrast`, `updated_at`. No row means defaults.
+- **Passwords:** bcrypt. At least 8 characters (US1). Reject passwords over 72 UTF-8 bytes rather than truncating.
+- **Signup:** creates the user and returns a `Session` (JWT plus user) so the frontend can go straight to the dashboard (SRS UC1).
+- **Reset link:** `secrets.token_urlsafe(32)`, stored only as a hash, valid for `RESET_TOKEN_TTL_MINUTES` (60, from US3), single use, a new link invalidates earlier ones, limited requests per email per hour. Token consumption, password update and `token_version` increment happen in one transaction.
 - **Forgot-password response** is identical for known and unknown emails, to avoid revealing which accounts exist.
-- **Admin:** at startup, if no user with `ADMIN_EMAIL` exists, create it with role `admin` and a bcrypt hash of `ADMIN_PASSWORD`. Never overwrite an existing admin password on restart. The admin uses the same login and reset flow, so a reset really changes the stored password.
-- **JWT:** HS256, `JWT_SECRET` from environment, claims per contract. `tv` mismatch with the user's current `token_version` is rejected, which makes password reset revoke old tokens.
-- **Mail:** `MAIL_MODE=console` prints the code to the server log for development; `smtp` sends through configured SMTP. Do not log OTPs when `ENVIRONMENT` is not development or test.
-- **Repo and compose (Day 1):** `docker-compose.yml` with `db` (PostgreSQL), `auth`, and placeholders for `products` and `frontend` that P3 and P4 enable. Each service reads its own `.env`; only `.env.example` is committed. Root `.gitignore` ignores `.env`, virtualenvs, `node_modules`, caches.
+- **Admin:** at startup, if no user with `ADMIN_EMAIL` exists, create it with role `admin` and a bcrypt hash of `ADMIN_PASSWORD`. Never overwrite an existing admin password on restart. The admin uses the same login and reset flow. The admin account cannot be deleted through `DELETE /auth/me`.
+- **Account deletion:** re-check the password, call the registered `delete_user_data(user_id)` (P3), then delete the `users` row (cascades to `preferences` and `password_resets`). If P3's step fails, return 500 and keep the user so they can retry. Until Day 4 the registered function is a no-op stand-in.
+- **JWT:** HS256, `JWT_SECRET` from environment, expiry `JWT_EXPIRES_MINUTES`, claims per contract. A `tv` mismatch or a missing user is rejected, which makes reset and deletion revoke old tokens.
+- **Mail:** `MAIL_MODE=console` prints the reset link to the server log in development; `smtp` sends through configured SMTP (a free-tier provider). Do not log reset links when `ENVIRONMENT` is not development or test.
+- **Repo and compose (Day 1):** `docker-compose.yml` with `db` (PostgreSQL) and `backend` (the single FastAPI app), and a placeholder for `frontend` (Next.js dev server) that P4 enables. Only `.env.example` is committed. Root `.gitignore` ignores `.env`, virtualenvs, `node_modules`, `.next`, caches.
+- **Railway (Day 4):** deploy `backend/Dockerfile` with Railway PostgreSQL; set variables in Railway; `ENVIRONMENT=production`, `AUTH_MODE=jwt`. The image uses `opencv-python-headless` for P1's photo module.
 
 ## Risks / Trade-offs
 
-- OTP brute force: mitigated by attempt and request limits plus short expiry.
+- Reset-token guessing: 32 random bytes make guessing impractical; request limits and 1-hour expiry add margin.
 - Hardcoded-admin requirement versus secrets in Git: resolved by environment-seeded admin; the credential is "fixed" but never committed.
 - Shared database: each owner creates only their own tables; P2 does not touch `products`, `shades` or `profiles`.
-- P3 and P2 schema migrations may clash if one tool owns the whole database. Proposal: each service manages its own tables independently.
+- Partial deletion across owners: P3 data is deleted first and the user row last, so a failure leaves a retryable account rather than orphaned personal data.
+- Railway free tier memory with MediaPipe loaded: measure on Day 4; fall back to lazy-loading the model on the first photo request.
+- Migration clashes: each owner manages their own tables independently.
 
 ## Migration Plan
 
@@ -39,6 +47,6 @@ New service. Create tables on first start; there is no earlier data.
 
 ## Open Questions
 
-- Password rules (Day 1).
 - Migration tool (Alembic or plain SQL scripts).
-- Whether OTP mail goes to a local mail catcher or the console in shared development.
+- SMTP provider for the deployed demo (free tier).
+- `JWT_EXPIRES_MINUTES` value (proposal: 60).

@@ -1,17 +1,21 @@
 ## ADDED Requirements
 
-Endpoints, claims and error shapes are defined in `openspec/contracts/auth.md`.
+Endpoints, password rules, claims, reset-link rules and error shapes are defined in `openspec/contracts/auth.md`. SRS stories: US1-US5.
 
 ### Requirement: Signup
-The system SHALL let a visitor create an account with name, email and password, SHALL store only a bcrypt hash of the password, and SHALL always assign the role `user`.
+The system SHALL let a visitor create an account with name, email and password (US1), SHALL require a password of at least 8 characters and at most 72 UTF-8 bytes, SHALL store only a bcrypt hash of the password, SHALL always assign the role `user`, and SHALL issue a JWT on success.
 
 #### Scenario: Successful signup
 - **WHEN** a visitor posts a valid name, new email and acceptable password
-- **THEN** the response is 201 with the public user and no password data
+- **THEN** the response is 201 with an access token and the public user, and no password data
 
 #### Scenario: Duplicate email
 - **WHEN** the email already exists
 - **THEN** the response is 409 `email_taken`
+
+#### Scenario: Weak password
+- **WHEN** the password has fewer than 8 characters
+- **THEN** the response is 422 with a detail on `password` stating the requirement
 
 #### Scenario: Role cannot be chosen
 - **WHEN** the request body includes `role: "admin"`
@@ -22,18 +26,18 @@ The system SHALL let a visitor create an account with name, email and password, 
 - **THEN** the response is 422 and nothing is truncated or stored
 
 ### Requirement: Login
-The system SHALL authenticate email and password and return a signed JWT access token with the user's id and role.
+The system SHALL authenticate email and password and return a signed JWT access token with an expiry, the user's id and role (US2).
 
 #### Scenario: Valid login
 - **WHEN** correct credentials are posted
-- **THEN** the response is 200 with `access_token`, `token_type` `bearer` and the user
+- **THEN** the response is 200 with `access_token`, `token_type` `bearer`, `expires_in` and the user
 
 #### Scenario: Invalid credentials
 - **WHEN** the password is wrong or the email is unknown
 - **THEN** the response is 401 with the same message in both cases
 
 ### Requirement: Token validation
-The system SHALL reject missing, malformed, expired, wrongly signed or revoked tokens and SHALL expose a reusable validator for other backend services.
+The system SHALL reject missing, malformed, expired, wrongly signed or revoked tokens and SHALL expose a reusable validator for other backend code.
 
 #### Scenario: Current user
 - **WHEN** `GET /auth/me` is called with a valid token
@@ -43,39 +47,73 @@ The system SHALL reject missing, malformed, expired, wrongly signed or revoked t
 - **WHEN** the token is expired or tampered with
 - **THEN** the response is 401
 
-### Requirement: Forgot password by OTP
-The system SHALL email a single-use, expiring one-time code on a password reset request and SHALL respond identically whether or not the account exists.
+### Requirement: Forgot password by reset link
+The system SHALL email a single-use reset link that expires 1 hour after it is issued (US3), SHALL respond identically whether or not the account exists, SHALL store only a hash of the link token, and SHALL limit requests per email.
 
 #### Scenario: Known and unknown email look the same
 - **WHEN** forgot-password is requested for a registered and an unregistered email
 - **THEN** both responses are 202 with the same message
 
-#### Scenario: Code stored hashed
-- **WHEN** an OTP is issued
-- **THEN** only a hash of the code is stored
+#### Scenario: Token stored hashed
+- **WHEN** a reset link is issued
+- **THEN** only a hash of its token is stored
 
 #### Scenario: Request limit
-- **WHEN** too many codes are requested for one email in the limit window
+- **WHEN** too many links are requested for one email in the limit window
 - **THEN** the response is 429
 
 ### Requirement: Password reset
-The system SHALL set a new password only when a valid, unexpired, unused OTP for that email is supplied, and SHALL then invalidate the code and all earlier tokens.
+The system SHALL set a new password only when a valid, unexpired, unused, latest reset token is supplied with a new password that meets the password rules, and SHALL then invalidate the token and all earlier access tokens.
 
 #### Scenario: Successful reset
-- **WHEN** the correct OTP and an acceptable new password are posted
+- **WHEN** a valid token and an acceptable new password are posted
 - **THEN** the response is 200, the old password stops working and the new one works
 
-#### Scenario: Invalid OTP
-- **WHEN** the OTP is wrong, expired or already used
-- **THEN** the response is 400 `invalid_otp` and the password is unchanged
+#### Scenario: Expired link
+- **WHEN** the token was issued more than 1 hour ago
+- **THEN** the response is 400 `invalid_reset_token` and the password is unchanged
 
-#### Scenario: Guess limit
-- **WHEN** the number of wrong guesses for a code reaches the limit
-- **THEN** that code can no longer be used
+#### Scenario: Invalid, used or superseded link
+- **WHEN** the token is wrong, already used, or a newer link was issued
+- **THEN** the response is 400 `invalid_reset_token` and the password is unchanged
 
 #### Scenario: Old token revoked
-- **WHEN** a token was issued before the reset
+- **WHEN** an access token was issued before the reset
 - **THEN** it is rejected with 401 afterwards
+
+### Requirement: Preferences
+The system SHALL let a signed-in user read and save font size, theme, colour-blind mode and high-contrast preferences (US4), SHALL return defaults when nothing is saved, and SHALL reject values outside the contract.
+
+#### Scenario: Defaults
+- **WHEN** a user who never saved preferences calls `GET /me/preferences`
+- **THEN** the response is 200 with the contract defaults
+
+#### Scenario: Save and persist
+- **WHEN** a user saves preferences and later signs in again
+- **THEN** `GET /me/preferences` returns the saved values
+
+#### Scenario: Invalid value
+- **WHEN** a preference value is not in the allowed list
+- **THEN** the response is 422 and nothing is saved
+
+### Requirement: Delete account and data
+The system SHALL let a signed-in user delete their account after confirming their password (US5), SHALL delete all of that user's data including the profile held by P3, and SHALL NOT allow the seeded admin account to be deleted this way.
+
+#### Scenario: Successful deletion
+- **WHEN** a user calls `DELETE /auth/me` with the correct password
+- **THEN** the response is 204, the user, preferences, reset tokens and profile are gone, and the old token and credentials are rejected
+
+#### Scenario: Wrong password
+- **WHEN** the password is wrong
+- **THEN** the response is 401 and nothing is deleted
+
+#### Scenario: Partial failure
+- **WHEN** deleting P3's data fails
+- **THEN** the response is 500 and the user account remains so the user can retry
+
+#### Scenario: Admin protected
+- **WHEN** the seeded admin calls `DELETE /auth/me`
+- **THEN** the response is 403
 
 ### Requirement: Fixed admin account
 The system SHALL provide one admin account whose email and initial password come from environment variables, SHALL NOT store those values in the repository, and SHALL let that account use forgot-password and reset.
@@ -92,12 +130,16 @@ The system SHALL provide one admin account whose email and initial password come
 - **WHEN** the service restarts after the admin changed their password
 - **THEN** the changed password remains in effect
 
-### Requirement: Shared repository setup
-The project SHALL provide a Git repository layout, `.gitignore`, `.env.example` and a docker-compose file that starts the database and auth service.
+### Requirement: Shared repository, backend app and deployment
+The project SHALL provide a Git repository layout, `.gitignore`, `.env.example`, a single FastAPI app that mounts the auth and products routers, a docker-compose file for local development, and a free-tier Railway deployment of the backend and PostgreSQL.
 
 #### Scenario: Fresh clone
 - **WHEN** a team member clones the repo and runs `docker compose up`
-- **THEN** the database and auth service start and Swagger is reachable
+- **THEN** the database and backend start and Swagger is reachable
+
+#### Scenario: Deployed backend
+- **WHEN** the Railway deployment is running
+- **THEN** the API answers under `/api/v1` and accepts requests only from the origins in `CORS_ORIGINS`
 
 #### Scenario: No secrets committed
 - **WHEN** the repository is inspected
