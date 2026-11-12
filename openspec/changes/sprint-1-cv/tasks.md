@@ -1,58 +1,28 @@
-## 1. Agree the contract
+# P1 Arwa - Colour analysis (`/cv`)
 
-- [ ] 1.1 [P1] Walk Eshaal, Ayesha and Momina through `openspec/contracts/cv.md` and record their "ok" in `team/daily-scrum.md`
-- [ ] 1.2 [P1][US8] Draft undertone thresholds, comparison rules and labelled fixtures for all four labels
-- [ ] 1.3 [P1][US8] Get the team to approve the undertone rule and the 24-cell season table; replace the pending identifiers in `cv.md`
-- [ ] 1.4 [P1][US8][US9] Get the team to approve the confidence thresholds, wear/avoid palette and explanation template
-- [ ] 1.5 [P1][US6] Propose the cheek and forehead landmark indices and the minimum pixel count; get approval
-- [ ] 1.6 [P1] Create the `/cv` package skeleton and `tests/` with pytest running
+## 1. Rules (agree with the team first)
 
-## 2. Core colour functions
+- [ ] 1.1 [P1] Decide undertone rules (warm, cool, neutral, olive) with test examples
+- [ ] 1.2 [P1] Decide the season table (undertone + skin depth -> Spring, Summer, Autumn, Winter)
+- [ ] 1.3 [P1] Decide the colours to wear and avoid for each season (hex + name)
 
-- [ ] 2.1 [P1] Implement `Lab`, `ItaResult`, `Depth` types
-- [ ] 2.2 [P1][US7] Implement `hex_to_lab(hex)` with strict hex validation
-- [ ] 2.3 [P1][US8] Implement `calculate_ita(lab)` with depth boundaries and `b = 0` handling
-- [ ] 2.4 [P1][US8] Implement `classify_undertone(lab)` after approval
-- [ ] 2.5 [P1][US8] Implement `map_season(undertone, depth)` including the `undetermined` rejection
+## 2. Colour functions
 
-## 3. Analysis for the profile payload
+- [ ] 2.1 [P1] Convert a hex colour to LAB
+- [ ] 2.2 [P1] Calculate ITA and skin depth
+- [ ] 2.3 [P1] Classify undertone
+- [ ] 2.4 [P1] Map undertone + depth to a season
+- [ ] 2.5 [P1] One function that returns the full result: season, undertone, depth, palette, confidence and a short explanation
+- [ ] 2.6 [P1] Allow the user to override the undertone (for "correct my tone")
 
-- [ ] 3.1 [P1] Implement `Analysis`, `Palette`, `NamedColour` types and `cv/rules.py` with versioned rule data
-- [ ] 3.2 [P1][US8] Implement the confidence indicator
-- [ ] 3.3 [P1][US9] Implement the approved wear/avoid palette lookup
-- [ ] 3.4 [P1][US8] Implement the explanation template with the disclaimer
-- [ ] 3.5 [P1][US7][US10] Implement `analyze_skin(skin_hex, undertone_override=None)`
-- [ ] 3.6 [P1] Export the public functions from `cv/__init__.py` and give Ayesha the import line
+## 3. Selfie
 
-## 4. Selfie skin sampling
+- [ ] 3.1 [P1] Detect one face in a JPG/PNG with MediaPipe
+- [ ] 3.2 [P1] Sample skin colour from the cheeks and forehead with OpenCV and return a hex
+- [ ] 3.3 [P1] Clear errors for no face, more than one face, wrong file type
+- [ ] 3.4 [P1] Make sure the photo is never saved
 
-- [ ] 4.1 [P1][US6] Collect consented or openly licensed test images and record source and licence in `tests/fixtures/README.md`
-- [ ] 4.2 [P1][US6] Implement image decoding, format check and downscaling with OpenCV
-- [ ] 4.3 [P1][US6] Implement face detection with MediaPipe Face Mesh (exactly one face)
-- [ ] 4.4 [P1][US6] Implement cheek/forehead masks and median sampling to a hex; `PhotoError` codes
-- [ ] 4.5 [P1][US6] Check that nothing is written to disk or logged during a call
+## 4. Testing and hand-off
 
-## 5. Tests
-
-- [ ] 5.1 [P1][US7] Unit tests: known hex values (black, white, red) within tolerance
-- [ ] 5.2 [P1][US7] Unit tests: invalid hex forms are rejected
-- [ ] 5.3 [P1][US8] Unit tests: ITA formula, negative `b`, exact boundaries and values just either side, `b = 0` cases
-- [ ] 5.4 [P1][US8] Unit tests: approved undertone fixtures
-- [ ] 5.5 [P1][US8] Unit tests: all 24 season combinations and the `undetermined` error
-- [ ] 5.6 [P1][US8] Unit tests: confidence boundaries, explanation text and disclaimer
-- [ ] 5.7 [P1][US9] Unit tests: palette complete, every entry hex + name, no colour in both lists
-- [ ] 5.8 [P1][US10] Unit tests: undertone override and invalid override
-- [ ] 5.9 [P1][US6] Unit tests: one face, no face, two faces, unsupported format, too little skin, repeat determinism, no files written
-- [ ] 5.10 [P1][US7] Unit test: photo hex and the same hex typed manually give the same `Analysis`
-
-## 6. Test cases and results
-
-- [ ] 6.1 [P1] Run the full suite and fill the P1 table (CV-01 to CV-16) in `team/test-results.md` with real results
-- [ ] 6.2 [P1] Support Ayesha's integration; re-run tests after any rule change; run IN-02 with her
-
-## 7. Documents
-
-- [ ] 7.1 [P1] Write the Sprint 1 update in `team/srs.md` (approved rules, changes to US1-US10, open issues)
-- [ ] 7.2 [P1] Collect review from Eshaal, Ayesha and Momina and log it in `team/srs.md`
-- [ ] 7.3 [P1] Write Arwa's sections of `team/user-manual.md` (finding your colours, understanding your result)
-- [ ] 7.4 [P1] Add your own cards to Trello (tagged US6-US10) and your entries to `team/daily-scrum.md`
+- [ ] 4.1 [P1] Unit tests for every function above
+- [ ] 4.2 [P1] Give Ayesha the functions to use in the profile API

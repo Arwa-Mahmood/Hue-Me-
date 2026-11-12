@@ -1,65 +1,11 @@
 schema: spec-driven
 
 context: |
-  Project: Hue&Me - Personal Stylist & Colour Analysis web app. The source requirements are the
-  team SRS in docs/SRS.pdf. Sprint 1 covers SRS user stories US1-US10:
-    US1 registration, US2 login/logout, US3 password recovery, US4 preferences (accessibility),
-    US5 delete account and data, US6 skin tone from a selfie, US7 manual skin tone entry,
-    US8 seasonal colour type, US9 colours to wear and avoid, US10 correct the detected tone.
-  Sprint 1 and Sprint 2 are kept separate: Sprint 1 changes contain only US1-US10. Sprint 2 work
-  (shade matching, product catalogue, admin, delta E, CSV enrichment, shade data) is parked in
-  openspec/sprint-2/ and is not part of any Sprint 1 task list.
-
-  Sprint 1 is split across four people with independent folders:
-    P1 Arwa    /cv                colour analysis (hex -> CIELAB, ITA depth, undertone, season,
-                                  palette, confidence, template explanation), selfie skin sampling
-                                  with MediaPipe + OpenCV
-    P2 Eshaal  /backend/auth      signup/login/JWT, reset link, preferences, account deletion;
-                                  tables: users, password_resets, preferences; also repo,
-                                  backend/main.py, docker-compose and Railway deployment
-    P3 Ayesha  /backend/profile  profile, photo analysis and correction endpoints, data deletion
-                                  hook; table: profiles
-    P4 Momina  /frontend          Next.js app: wireframes, all user screens, accessibility settings,
-                                  built against a mock API until integration, deployed on Vercel
-
-  Tech stack (fixed by the SRS):
-    Frontend  React / Next.js, deployed on Vercel (free tier). PWA install is optional.
-    Backend   Python 3.11+, FastAPI, one app on Railway (free tier) that mounts the auth and
-              profile routers.
-    Database  PostgreSQL on Railway (free tier); docker-compose for local development.
-    Auth      bcrypt password hashes, JWT access tokens with expiry.
-    CV        MediaPipe (pre-trained, runs locally) for face detection and landmarks; OpenCV for
-              image decoding and skin sampling; colour maths per contracts/cv.md.
-    Process   Scrum, 7 weeks / 2 sprints, backlog on Trello.
-  Out of scope: generative AI, LLM text (templates only), custom model training, real-time AR,
-  payments, native mobile apps, any paid service.
-
-  Shared interface contracts live in openspec/contracts/ and take precedence over any change
-  document. Team process documents live in openspec/team/.
-
-  Conventions:
-    - API base path /api/v1, JSON, snake_case field names.
-    - Never commit secrets, real passwords or credentials. Use environment variables and .env.example.
-    - Selfies are never stored: not on disk, not in the database, not in logs.
-    - Test results are recorded only after they are actually run. Use "Not run" otherwise.
+  Hue&Me - colour analysis web app. Requirements: docs/SRS.pdf. Sprint 1 = user stories US1-US10.
+  Tech stack: see openspec/tech-stack.md.
+  Team: P1 Arwa (CV), P2 Eshaal (auth), P3 Ayesha (profile API), P4 Momina (frontend).
 
 rules:
-  proposal:
-    - State the owner (P1-P4) and the folder the change may write to.
-    - List the SRS user stories (US#) the change delivers.
-    - Include a "Non-goals" section.
   tasks:
-    - Every task has an owner tag, for example "[P1]". Do not add day or date tags.
-    - Add the SRS story tag where one applies, for example "[P1][US6]".
-    - Sprint 1 task lists contain only US1-US10 work and its setup, tests and documents.
-    - Include test-case and test-result tasks.
-    - Leave all boxes unchecked until the work is actually done.
-  specs:
-    - Use SHALL/MUST and at least one WHEN/THEN scenario per requirement.
-    - Do not contradict openspec/contracts/*.md; reference them instead of copying values.
-
-operations:
-  apply:
-    guidance:
-      - Only write inside the folder owned by the change owner, plus the shared team documents.
-      - Record test evidence in openspec/team/test-results.md only after running the tests.
+    - Every task has an owner tag, for example "[P1]".
+    - Tick a box only when the work is done and tested.
