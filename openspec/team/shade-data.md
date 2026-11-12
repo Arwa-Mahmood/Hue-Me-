@@ -1,6 +1,6 @@
 # Shared product database (early-finisher task)
 
-Whoever finishes their own tasks first picks this up. P1 will probably be first because the CV logic is small. Put your name here when you start: ____
+Preparation for Sprint 2 shade matching (SRS US11-US13: foundation, concealer, lipstick and blush matched with delta E, close match at delta E <= 3.0). Whoever finishes their own Sprint 1 stories first picks this up; it never delays US1-US10. Put your name here when you start: ____
 
 ## One CSV format
 
@@ -15,12 +15,12 @@ brand,product_name,category,shade_name,hex,buy_link
 
 ## Scope
 
-- 3 to 4 brands that people actually buy locally.
+- 3 to 4 brands that people actually buy locally (SRS target audience: primarily South Asia).
 - 8 to 10 shades for each of foundation, concealer, lipstick and blush, per brand where the brand sells it.
 
 ## Steps
 
-1. Check what Makeup API and Open Beauty Facts already provide before collecting anything by hand. Note licence terms and whether hex values exist.
+1. Check what Makeup API and Open Beauty Facts (both free, no auth, named in the SRS) already provide before collecting anything by hand. Note licence terms and whether hex values exist.
 2. Where the brand gives no hex, take it from the product swatch image with a colour picker. Sample the swatch centre, avoid highlights and shadows, and note the source.
 3. Fill in the CSV and add a row to the source log below.
 4. Run P1's bulk script. Hand the enriched file to P3 to import.

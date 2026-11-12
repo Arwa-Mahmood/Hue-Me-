@@ -1,18 +1,37 @@
 schema: spec-driven
 
 context: |
-  Project: Hue Me - a makeup shade recommendation app. A user supplies skin (and optionally
-  hair/eye) colours as hex; the system derives CIELAB, ITA depth, undertone and colour season,
-  and (Sprint 2) matches them to product shades.
+  Project: Hue&Me - Personal Stylist & Colour Analysis web app. The source requirements are the
+  team SRS in docs/SRS.pdf. Sprint 1 covers SRS user stories US1-US10:
+    US1 registration, US2 login/logout, US3 password recovery, US4 preferences (accessibility),
+    US5 delete account and data, US6 skin tone from a selfie, US7 manual skin tone entry,
+    US8 seasonal colour type, US9 colours to wear and avoid, US10 correct the detected tone.
+  Sprint 2 (US11+) adds shade matching with delta E; the product catalogue built in Sprint 1 is
+  preparation for that and is lower priority than the US1-US10 work.
 
   Sprint 1 is split across four people with independent folders:
-    P1  /cv                 pure-Python colour analysis + CSV enrichment CLI
-    P2  /backend/auth       signup/login/JWT/OTP reset, tables: users, otp; also repo + docker-compose
-    P3  /backend/products   products/shades admin CRUD, profile endpoint, CSV import; tables: products, shades, profiles
-    P4  /frontend           wireframes + all user/admin screens, built against a mock API until Day 4
+    P1  /cv                 colour analysis (hex -> CIELAB, ITA depth, undertone, season, palette,
+                            confidence, template explanation), selfie skin sampling with MediaPipe
+                            + OpenCV, CSV enrichment CLI
+    P2  /backend/auth       signup/login/JWT, reset link, preferences, account deletion; tables:
+                            users, password_resets, preferences; also repo, backend/main.py,
+                            docker-compose and Railway deployment
+    P3  /backend/products   profile, photo analysis and correction endpoints; products/shades admin
+                            CRUD and CSV import (Sprint 2 prep); tables: profiles, products, shades
+    P4  /frontend           Next.js app: wireframes, all user/admin screens, accessibility settings,
+                            built against a mock API until Day 4, deployed on Vercel
 
-  Proposed stack (not yet fixed by the team; confirm on Day 1): Python 3.11+, FastAPI, PostgreSQL,
-  bcrypt, JWT. Frontend stack is chosen by P4 on Day 1.
+  Tech stack (fixed by the SRS):
+    Frontend  React / Next.js, deployed on Vercel (free tier). PWA install is optional.
+    Backend   Python 3.11+, FastAPI, one app on Railway (free tier) that mounts the auth and
+              products routers.
+    Database  PostgreSQL on Railway (free tier); docker-compose for local development.
+    Auth      bcrypt password hashes, JWT access tokens with expiry.
+    CV        MediaPipe (pre-trained, runs locally) for face detection and landmarks; OpenCV for
+              image decoding and skin sampling; colour maths per contracts/cv.md.
+    Process   Scrum, 7 weeks / 2 sprints, backlog on Trello.
+  Out of scope: generative AI, LLM text (templates only), custom model training, real-time AR,
+  payments, native mobile apps, any paid service.
 
   Shared interface contracts live in openspec/contracts/ and take precedence over any change
   document. Team process documents live in openspec/team/.
@@ -20,14 +39,17 @@ context: |
   Conventions:
     - API base path /api/v1, JSON, snake_case field names.
     - Never commit secrets, real passwords or credentials. Use environment variables and .env.example.
+    - Selfies are never stored: not on disk, not in the database, not in logs.
     - Test results are recorded only after they are actually run. Use "Not run" otherwise.
 
 rules:
   proposal:
     - State the owner (P1-P4) and the folder the change may write to.
+    - List the SRS user stories (US#) the change delivers.
     - Include a "Non-goals" section.
   tasks:
     - Every task has an owner tag and a day, for example "[P1][Day 2]".
+    - Add the SRS story tag where one applies, for example "[P1][Day 2][US6]".
     - Include test-case and test-result tasks.
     - Leave all boxes unchecked until the work is actually done.
   specs:

@@ -1,13 +1,15 @@
 # Shared CV contract — Sprint 1
 
-- Owner: **P1**. Consumers: **P3** (backend/product integration) and frontend owner.
+- Owner: **P1**. Consumers: **P3** (backend integration) and **P4** (frontend).
+- SRS stories: US6 skin tone from a selfie, US7 manual entry (same output as photo), US8 seasonal colour type with explanation and confidence, US9 colours to wear and avoid, US10 corrected tone. `delta_e` and the CSV CLI prepare Sprint 2 (US11+).
 - Status: planning only; no implementation or executed evidence. Fixed requirements below are authoritative for consumers. Sections explicitly marked **PROPOSED / Day 1 approval required** are not accepted rules.
-- Location of future implementation: `/cv`. No database, authentication, web framework, or UI dependency is permitted in the CV core or CSV CLI.
-- Precedence: this file is the shared interface source of truth. P1 must reconcile the change proposal, design, requirements, tests, and consumer expectations with it before accepting a revision. Changes affecting consumers require P3 and frontend review.
+- Location of future implementation: `/cv`. No database, authentication, web framework, or UI dependency is permitted anywhere in `/cv`. The colour core and CSV CLI use only the standard library; only the photo module (section 9) may import MediaPipe, OpenCV (`opencv-python-headless`) and NumPy, as the SRS requires.
+- No generative AI, LLM, diffusion model or custom-trained model is used. All logic is rule-based and deterministic; explanation text comes from fixed templates.
+- Precedence: this file is the shared interface source of truth. P1 must reconcile the change proposal, design, requirements, tests, and consumer expectations with it before accepting a revision. Changes affecting consumers require P3 and P4 review.
 
 ## 1. Public surface and shared types
 
-Exactly five public pure Python analysis functions are in scope:
+Seven public Python functions are in scope. The first five are pure numerical primitives; `analyze_skin` composes them for the backend; `extract_skin_hex` is the photo entry point.
 
 | Function | Return | Contract |
 | --- | --- | --- |
@@ -16,15 +18,20 @@ Exactly five public pure Python analysis functions are in scope:
 | `classify_undertone(lab)` | `warm`, `cool`, `neutral`, or `olive` | Apply the team-accepted, versioned heuristic; approval is blocking. |
 | `map_season(undertone, depth)` | `Spring`, `Summer`, `Autumn`, or `Winter` | Apply the team-accepted decision table; reject `undetermined`. |
 | `delta_e(lab1, lab2)` | nonnegative float | CIE76 distance, ready for Sprint 2 consumers. |
+| `analyze_skin(skin_hex, undertone_override=None)` | `Analysis` | US7/US8/US9/US10. One call that returns everything the profile payload needs (section 10). |
+| `extract_skin_hex(image_bytes)` | `SkinSample` | US6. Detect one face with MediaPipe and return the sampled skin colour as hex (section 9). |
 
 Shared value types are not additional analysis functions:
 
 - `Lab`: immutable value with finite floating-point fields `l`, `a`, `b`; serialize exactly as `{ "l": ..., "a": ..., "b": ... }`. No mutation of arguments or shared state. Pure numerical functions accept finite synthetic Lab values for math tests; physical color-gamut checks are not added to those functions.
 - `Depth`: enum with wire values `very_light`, `light`, `intermediate`, `tan`, `brown`, `dark`, `undetermined`.
 - `ItaResult`: immutable value with `angle_degrees: float | None` and `depth: Depth`. `None` means only the defined ITA indeterminate case, not missing or invalid input.
+- `Analysis`: immutable value with `skin_hex` (normalized), `lab`, `ita` (`ItaResult`), `undertone`, `season`, `confidence` (`high` | `medium` | `low`), `explanation` (string), `palette` (`Palette`), `corrected` (bool, true when `undertone_override` was used) and `rule_versions` (mapping of rule name to version identifier).
+- `Palette`: immutable value with `wear` and `avoid`, each an ordered tuple of `NamedColour(hex, name)` where `hex` is uppercase `#RRGGBB` and `name` is a nonempty text label (US9: every swatch has a text label).
+- `SkinSample`: immutable value with `skin_hex` (uppercase `#RRGGBB`) and `pixel_count` (int, number of sampled skin pixels).
 - Undertone wire values are lowercase; season wire values use the capitalization in the function table.
 - Invalid argument types/values, nonfinite Lab components, unknown enum values, malformed hex, and an undetermined season request raise an explicit `ValueError` with an actionable message. Do not silently coerce invalid input, return a default season, or emit NaN/Infinity.
-- Functions are deterministic for the same inputs and accepted rule version. They perform no I/O, network access, database queries, or user-state access. Rule versions are immutable implementation configuration, not extra arguments or extra public analysis functions.
+- Functions are deterministic for the same inputs and accepted rule version. They perform no file, network, database or user-state access (the photo module only loads MediaPipe's bundled local model). Rule versions are immutable implementation configuration, not extra arguments or extra public analysis functions.
 
 ## 2. Hexadecimal and Lab reference
 
@@ -106,11 +113,11 @@ Proposed identifier: `season-v1-draft`. This is a complete **24-combination draf
 
 Use a numerically stable Euclidean norm as needed. The result is nonnegative, symmetric, and zero for identical values. Reject nonfinite inputs and a distance that cannot be represented as a finite float. Do not implement CIE94, CIEDE2000, palette ranking, matching, or a recommendation service in this sprint.
 
-Planned evidence: identity; symmetry; `(50,0,0)` versus `(53,4,0)` equals `5.0` within `1e-12`; invalid inputs. Sprint 2 receives this primitive and contract, not a completed matching feature.
+Planned evidence: identity; symmetry; `(50,0,0)` versus `(53,4,0)` equals `5.0` within `1e-12`; invalid inputs. Sprint 2 receives this primitive and contract, not a completed matching feature. (SRS DR2: Sprint 2 treats `delta_e <= 3.0` as a "close match".)
 
 ## 7. CSV enrichment boundary
 
-A future CLI entrypoint will wrap `hex_to_lab`; **no CLI implementation exists or is added by this planning change**. P1 will implement and document a Windows-compatible invocation during implementation. This is I/O orchestration, not a sixth analysis function.
+A future CLI entrypoint will wrap `hex_to_lab`; **no CLI implementation exists or is added by this planning change**. P1 will implement and document a Windows-compatible invocation during implementation. This is I/O orchestration, not an additional public function. It supports the Sprint 2 shade database.
 
 Canonical required input columns, in order: `brand,product_name,category,shade_name,hex,buy_link`.
 
@@ -122,12 +129,72 @@ Canonical required input columns, in order: `brand,product_name,category,shade_n
 - On any validation/conversion/write failure, exit nonzero and publish no partial result; leave an existing destination unchanged. Write via a temporary sibling followed by atomic replacement only after success; remove temporary output on failure. Reject identical input/output paths before writing. Diagnostics go to stderr; do not silently skip rows. A valid header-only input may produce an output header with the three appended columns.
 - Batch acceptance evidence includes every allowed category, extra source columns and quoted text, normalization without source mutation, deterministic repeat runs, multiple bad rows, malformed headers/CSV, preexisting destination preservation, and simulated write failure.
 
-## 8. Backend and frontend integration boundary
+## 8. Selfie skin sampling (US6) — landmark regions PROPOSED / Day 1 approval required
 
-P3 implements HTTP handling outside `/cv`. This section defines the shared profile payload, not an endpoint path, persistence implementation, or authentication requirement.
+`extract_skin_hex(image_bytes: bytes) -> SkinSample` lives in `cv/photo.py`. It is the only module in `/cv` allowed to import MediaPipe, OpenCV and NumPy.
 
-- Analyze only `skin_hex`: normalize it, compute `Lab`, `ItaResult`, undertone, and season using the accepted policies.
-- `hair_hex` and `eye_hex` are optional, normalized with the same hex rules when supplied, and stored by the backend if present. Missing values serialize as `null`. They do **not** influence ITA, depth, undertone, or season. Storage is a backend concern and does not add a CV database dependency.
+- **Input:** the raw bytes of one JPEG or PNG image, held in memory. Other formats (detected from the decoded content, not the file name) raise `PhotoError("unsupported_format")`. The upload size limit is enforced by P3 before calling (section 11).
+- **Decode:** OpenCV `imdecode` to an 8-bit image, converted to RGB order. Images larger than 1600 px on the long side are downscaled with area interpolation before detection, so results do not depend on camera resolution beyond that.
+- **Face:** MediaPipe Face Mesh (pre-trained, 468 landmarks, static image mode). Exactly one face is required: none raises `PhotoError("no_face")`, more than one raises `PhotoError("multiple_faces")`. No custom model is trained.
+- **Skin regions:** polygons on the left cheek, right cheek and forehead built from fixed landmark indices. The index lists are proposed by P1 as `regions-v1-pending` and recorded here once approved. Eyes, brows, lips, nostrils and hairline are excluded by construction.
+- **Colour:** take the **per-channel median** of all sRGB pixels inside the regions (robust to highlights and shadows), round each channel to an integer, and format it as uppercase `#RRGGBB`. Fewer than **500** sampled pixels raises `PhotoError("insufficient_skin")`.
+- **Same path as manual entry (US7):** the photo result is only a hex. The backend passes it to `analyze_skin`, so photo and manual input share one analysis and one output shape.
+- **Privacy:** the function never writes the image or any crop to disk, the database, logs or exceptions, and keeps no reference after returning. Error messages do not include pixel data.
+- **Errors:** `PhotoError` is a subclass of `ValueError` with a `code` attribute in {`unsupported_format`, `no_face`, `multiple_faces`, `insufficient_skin`} and a user-readable message.
+- **Determinism:** identical bytes give an identical `SkinSample` under the same MediaPipe, OpenCV and rule versions. Lighting, make-up and camera white balance affect the result; that is a documented limitation, not a defect, and US10 correction exists for it.
+- **Test images:** use only images the team has the right to commit (team members' own photos with consent, or openly licensed faces); record the source and licence in `cv/tests/fixtures/README.md`. Synthetic images (no face, two faces, a flat colour) cover the error paths.
+
+## 9. Confidence indicator (US8) — PROPOSED / Day 1 approval required
+
+Proposed identifier: `confidence-v1-pending`. The indicator says how close the result is to a rule boundary. It is **not** a probability and not a claim of accuracy.
+
+- Depth margin `m_d` = smallest absolute difference between the unrounded ITA angle and the depth boundaries `55, 41, 28, 10, -30`.
+- Undertone margin `m_u` = distance from the Lab value to the nearest undertone threshold of the approved rule (section 4), in that rule's units. Its thresholds `U_low` and `U_high` are fixed together with the undertone rule.
+- Draft rule: `low` if `m_d < 1.0` or `m_u < U_low`; `high` if `m_d >= 3.0` and `m_u >= U_high`; otherwise `medium`.
+- With `undertone_override`, `m_u` is ignored and confidence is based on `m_d` only.
+- Exact boundary handling follows the inequalities above; tests cover values on and just either side of `1.0` and `3.0`.
+
+## 10. Analysis, palette and explanation (US7, US8, US9, US10)
+
+`analyze_skin(skin_hex, undertone_override=None) -> Analysis`:
+
+1. Normalize and convert `skin_hex` with `hex_to_lab`.
+2. Compute ITA and depth with `calculate_ita`. If depth is `undetermined`, raise `ValueError` with an explicit undetermined-depth message (no season, no palette).
+3. Undertone = `undertone_override` if given (must be one of the four wire values, else `ValueError`), otherwise `classify_undertone(lab)`. `corrected` is true only when an override is given.
+4. Season = `map_season(undertone, depth)`.
+5. Confidence per section 9; palette per the table below; explanation per the template below.
+6. `rule_versions` lists the identifiers of the undertone, season, confidence, palette and explanation rules used.
+
+The same `skin_hex` and override always give the same `Analysis`. Hex input from manual entry (US7), from the swatch grid, from a photo (US6) or from a correction (US10) follows exactly this path.
+
+### Palette — PROPOSED / Day 1 approval required
+
+Proposed identifier: `palette-v1-draft`. Styling guidance only, not a scientific claim. P1 drafts; the team approves or edits every cell together with the tests. Each entry is `name hex`.
+
+| Season | Wear | Avoid |
+| --- | --- | --- |
+| Spring | Coral `#FF7F50`, Peach `#FFCBA4`, Warm ivory `#FFF8E7`, Golden yellow `#FFC000`, Turquoise `#40E0D0`, Camel `#C19A6B` | Black `#000000`, Charcoal `#36454F`, Burgundy `#800020`, Icy blue `#D6ECEF` |
+| Summer | Powder blue `#B0E0E6`, Lavender `#E6E6FA`, Dusty rose `#DCAE96`, Soft navy `#3B4B6B`, Mauve `#E0B0FF`, Cool grey `#8C92AC` | Orange `#FFA500`, Mustard `#FFDB58`, Black `#000000`, Rust `#B7410E` |
+| Autumn | Olive `#808000`, Rust `#B7410E`, Mustard `#FFDB58`, Terracotta `#E2725B`, Forest green `#228B22`, Chocolate `#7B3F00` | Icy pink `#F8C8DC`, Fuchsia `#FF00FF`, Pure white `#FFFFFF`, Cool grey `#8C92AC` |
+| Winter | Pure white `#FFFFFF`, Black `#000000`, Royal blue `#4169E1`, Emerald `#50C878`, Fuchsia `#FF00FF`, Ruby `#9B111E` | Orange `#FFA500`, Camel `#C19A6B`, Mustard `#FFDB58`, Peach `#FFCBA4` |
+
+Every entry must have both a hex and a nonempty name; a colour must not appear in both lists of the same season. Order is preserved on the wire.
+
+### Explanation — template, PROPOSED / Day 1 approval required
+
+Proposed identifier: `explanation-v1-draft`. Text is filled from a fixed template; no LLM or generated text. Numbers are rounded for display only (one decimal place for ITA).
+
+> Your skin colour {skin_hex} has an ITA angle of {ita:.1f}°, which falls in the {depth_label} depth range. Your undertone is {undertone}{override_note}. With a {undertone} undertone and {depth_label} depth, your colour type is {season}. This is a styling guide, not a medical or dermatological assessment.
+
+- `{depth_label}` replaces `_` with a space (`very light`). `{override_note}` is ` (set by you)` when `corrected` is true, otherwise empty.
+- The final sentence is always present (SRS DR4).
+
+## 11. Backend and frontend integration boundary
+
+P3 implements HTTP handling outside `/cv` and calls only `analyze_skin` and `extract_skin_hex` (plus `hex_to_lab` for shades). This section defines the shared profile payload, not an endpoint path or persistence implementation.
+
+- Analyze only `skin_hex`. `hair_hex` and `eye_hex` are optional, normalized with the same hex rules when supplied, and stored by the backend if present. Missing values serialize as `null`. They do **not** influence any analysis output.
+- `source` records how the skin colour was obtained: `manual` (hex field or swatch grid, US7) or `photo` (US6). A correction (US10) keeps the earlier `source` and sets `corrected: true`.
 - Successful response fields are exactly:
 
 ```json
@@ -135,25 +202,34 @@ P3 implements HTTP handling outside `/cv`. This section defines the shared profi
   "skin_hex": "#RRGGBB",
   "hair_hex": null,
   "eye_hex": null,
+  "source": "manual",
+  "corrected": false,
   "lab": { "l": 0.0, "a": 0.0, "b": 0.0 },
   "ita_degrees": 0.0,
   "depth": "brown",
   "undertone": "neutral",
-  "season": "Summer"
+  "season": "Summer",
+  "confidence": "medium",
+  "explanation": "Template text from section 10.",
+  "palette": {
+    "wear": [ { "hex": "#RRGGBB", "name": "Powder blue" } ],
+    "avoid": [ { "hex": "#RRGGBB", "name": "Orange" } ]
+  },
+  "rule_versions": { "undertone": "...", "season": "...", "confidence": "...", "palette": "...", "explanation": "..." },
+  "updated_at": "2026-01-01T00:00:00Z"
 }
 ```
 
 This is a **shape illustration only**: `#RRGGBB` is a schema placeholder, not a valid input or a computed test fixture; numbers and labels do not assert a consistent analysis result. `lab` fields are finite floats; the nested `angle_degrees` name is translated to top-level `ita_degrees`, not returned as an `ItaResult` object.
 
-- Internal `ItaResult.angle_degrees = None` / `depth = undetermined` is supported, but cannot yield a successful season response. P3 must return **HTTP 422** with an explicit undetermined-depth reason, not a guessed season or a 200 response with a null season. Invalid hex/Lab/enum input also maps to explicit 422 validation errors at that boundary.
-- Exact HTTP error-envelope shape and endpoint route belong to P3's contract; P3/frontend must agree on them on Day 1. Do not invent an incompatible envelope here.
-- Frontend consumes the names, normalization, enum values, and 422 behavior above; it must not recalculate a divergent season policy. Changing optional hair/eye inputs alone must not change analysis outputs.
+- `depth = undetermined` cannot yield a successful response. P3 must return **HTTP 422** with an explicit undetermined-depth reason, not a guessed season or a 200 with a null season. Invalid hex, unknown `undertone_override` and every `PhotoError` also map to 422 validation errors (`field` is `skin_hex`, `undertone_override` or `file`).
+- Frontend consumes the names, normalization, enum values and 422 behaviour above. It must not recalculate season, palette, confidence or explanation. Changing optional hair/eye inputs alone must not change analysis outputs.
 
-## 9. Acceptance, ownership, and evidence
+## 12. Acceptance, ownership, and evidence
 
-1. P1 owns CV implementation, CLI, unit tests, and evidence collection; P3 and frontend review the shared contract. All owners review the Day 1 heuristic/table choices.
-2. Day 1 approval is **pending** for undertone rules/fixtures and the complete season table. No implementation completion or rule acceptance is claimed.
-3. Planned unit evidence covers known Lab references, strict hex validation, immutable values, ITA ratio and exact boundaries/singularities/negative `b`, nonfinite rejection, all 24 accepted season combinations, undetermined rejection, accepted undertone fixtures, and CIE76 properties.
-4. Planned integration evidence covers CSV determinism/all-or-nothing errors and P3's profile mapping, 422 behavior, and hair/eye independence. P3 owns HTTP-side execution; CV tests need no server/DB/auth/UI.
+1. P1 owns CV implementation, photo module, CLI, unit tests, and evidence collection; P3 and P4 review the shared contract. All owners review the Day 1 heuristic, table, region, confidence, palette and template choices.
+2. Day 1 approval is **pending** for undertone rules/fixtures, the season table, face regions, confidence thresholds, palette and explanation template. No implementation completion or rule acceptance is claimed.
+3. Planned unit evidence covers known Lab references, strict hex validation, immutable values, ITA ratio and exact boundaries/singularities/negative `b`, nonfinite rejection, all 24 accepted season combinations, undetermined rejection, accepted undertone fixtures, CIE76 properties, confidence boundaries, palette completeness (4 seasons, hex + name on every entry), explanation text, override handling, and photo cases (one face, no face, two faces, unsupported format, too little skin, deterministic repeat, nothing written to disk).
+4. Planned integration evidence covers CSV determinism/all-or-nothing errors and P3's profile mapping, photo upload, 422 behaviour, correction and hair/eye independence. P3 owns HTTP-side execution; CV tests need no server/DB/auth/UI.
 5. Record the actual command, environment, rule/fixture versions, expected/observed behavior, pass/fail counts, and failures only after execution. Current result: **Not run — planning documents only**.
-6. After CV completion and evidence review, P1 writes the **first updated SRS**, obtains review from **all owners**, and only then takes the early-finisher shared-shade-data research task. Research is for a shared dataset (source, licensing, provenance, categories, schema fit, coverage, quality), not a private substitute or a new CV feature. Neither SRS nor dataset files are created by this planning change.
+6. After CV completion and evidence review, P1 updates the Sprint 1 section of the SRS (`team/srs.md`, source `docs/SRS.pdf`), obtains review from **all owners**, and only then takes the early-finisher shared-shade-data research task. Research is for a shared dataset (source, licensing, provenance, categories, schema fit, coverage, quality), not a private substitute or a new CV feature.
