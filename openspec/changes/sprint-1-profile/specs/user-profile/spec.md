@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Save colour profile from manual entry
-The system SHALL let an identified user save `skin_hex` (typed or chosen from the swatch grid) and optional `hair_hex` and `eye_hex`, SHALL analyse `skin_hex` using P1's `analyze_skin`, and SHALL store the result for that user with `source = manual` (US7).
+The system SHALL let an identified user save `skin_hex` (typed or chosen from the swatch grid) and optional `hair_hex` and `eye_hex`, SHALL analyse `skin_hex` using the CV module's `analyze_skin`, and SHALL store the result for that user with `source = manual` (US7).
 
 #### Scenario: Successful save
 - **WHEN** a user puts a valid `skin_hex`
@@ -20,7 +20,7 @@ The system SHALL let an identified user save `skin_hex` (typed or chosen from th
 - **THEN** those fields are `null`
 
 ### Requirement: Analyse a selfie without keeping it
-The system SHALL accept a JPEG or PNG selfie up to the configured size, SHALL obtain the skin hex with P1's `extract_skin_hex`, SHALL analyse and save it with `source = photo`, and SHALL NOT write the image to disk, the database, logs or error reports (US6).
+The system SHALL accept a JPEG or PNG selfie up to the configured size, SHALL obtain the skin hex with the CV module's `extract_skin_hex`, SHALL analyse and save it with `source = photo`, and SHALL NOT write the image to disk, the database, logs or error reports (US6).
 
 #### Scenario: Valid selfie
 - **WHEN** a user uploads a clear JPEG or PNG selfie with one face
@@ -76,7 +76,7 @@ The system SHALL return only the caller's own profile, including palette, explan
 - **THEN** user A's data is never returned
 
 ### Requirement: Delete user data
-The system SHALL provide `delete_user_data(user_id)` that removes every row P3 holds for that user and SHALL be safe to call more than once (US5).
+The system SHALL provide `delete_user_data(user_id)` that removes every row the profile service holds for that user and SHALL be safe to call more than once (US5).
 
 #### Scenario: Profile removed
 - **WHEN** `delete_user_data` is called for a user with a profile

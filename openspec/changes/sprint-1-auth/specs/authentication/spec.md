@@ -95,7 +95,7 @@ The system SHALL let a signed-in user read and save font size, theme, colour-bli
 - **THEN** the response is 422 and nothing is saved
 
 ### Requirement: Delete account and data
-The system SHALL let a signed-in user delete their account after confirming their password (US5), SHALL delete all of that user's data including the profile held by P3, and SHALL NOT allow the seeded admin account to be deleted this way.
+The system SHALL let a signed-in user delete their account after confirming their password (US5) and SHALL delete all of that user's data including the profile held by the profile service.
 
 #### Scenario: Successful deletion
 - **WHEN** a user calls `DELETE /auth/me` with the correct password
@@ -106,30 +106,11 @@ The system SHALL let a signed-in user delete their account after confirming thei
 - **THEN** the response is 401 and nothing is deleted
 
 #### Scenario: Partial failure
-- **WHEN** deleting P3's data fails
+- **WHEN** deleting the profile data fails
 - **THEN** the response is 500 and the user account remains so the user can retry
 
-#### Scenario: Admin protected
-- **WHEN** the seeded admin calls `DELETE /auth/me`
-- **THEN** the response is 403
-
-### Requirement: Fixed admin account
-The system SHALL provide one admin account whose email and initial password come from environment variables, SHALL NOT store those values in the repository, and SHALL let that account use forgot-password and reset.
-
-#### Scenario: Admin login
-- **WHEN** the admin logs in with the configured credentials
-- **THEN** the token has role `admin`
-
-#### Scenario: Admin password reset
-- **WHEN** the admin completes forgot-password and reset
-- **THEN** the new password works and the old one does not
-
-#### Scenario: Restart does not overwrite
-- **WHEN** the service restarts after the admin changed their password
-- **THEN** the changed password remains in effect
-
 ### Requirement: Shared repository, backend app and deployment
-The project SHALL provide a Git repository layout, `.gitignore`, `.env.example`, a single FastAPI app that mounts the auth and products routers, a docker-compose file for local development, and a free-tier Railway deployment of the backend and PostgreSQL.
+The project SHALL provide a Git repository layout, `.gitignore`, `.env.example`, a single FastAPI app that mounts the auth and profile routers, a docker-compose file for local development, and a free-tier Railway deployment of the backend and PostgreSQL.
 
 #### Scenario: Fresh clone
 - **WHEN** a team member clones the repo and runs `docker compose up`

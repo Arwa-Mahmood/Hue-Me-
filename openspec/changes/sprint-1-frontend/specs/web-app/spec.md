@@ -112,23 +112,12 @@ The app SHALL offer controls to change the undertone or adjust the skin colour, 
 - **WHEN** the user changes the undertone and submits
 - **THEN** the new palette is shown with a "corrected" label
 
-### Requirement: Admin and catalogue screens
-As preparation for Sprint 2, the app SHALL list products and shades with filters and buy links, and SHALL provide admin screens to add, edit and delete products and shades and to import a CSV, showing every row error returned for a failed import.
-
-#### Scenario: Import errors shown
-- **WHEN** the API rejects a CSV with row errors
-- **THEN** the app lists each row number and reason and states that nothing was imported
-
-#### Scenario: Non-admin blocked
-- **WHEN** a signed-in non-admin opens an admin URL
-- **THEN** the app redirects away from the admin screens
-
 ### Requirement: Mock to real API switch and deployment
-The app SHALL read the API base address from `NEXT_PUBLIC_API_BASE_URL`, SHALL work against a mock API built from the contracts until Day 4 and against the real API afterwards without screen code changes, and SHALL be deployed on Vercel's free tier.
+The app SHALL read the API base address from `NEXT_PUBLIC_API_BASE_URL`, SHALL work against a mock API built from the contracts until integration and against the real API afterwards without screen code changes, and SHALL be deployed on Vercel's free tier.
 
 #### Scenario: Mock mode
 - **WHEN** the base address points to the mock
-- **THEN** all user and admin flows work, including error responses
+- **THEN** all user flows work, including error responses
 
 #### Scenario: Real mode
 - **WHEN** the deployed Vercel app points to the Railway API
