@@ -6,25 +6,26 @@ context: |
     US1 registration, US2 login/logout, US3 password recovery, US4 preferences (accessibility),
     US5 delete account and data, US6 skin tone from a selfie, US7 manual skin tone entry,
     US8 seasonal colour type, US9 colours to wear and avoid, US10 correct the detected tone.
-  Sprint 2 (US11+) adds shade matching with delta E; the product catalogue built in Sprint 1 is
-  preparation for that and is lower priority than the US1-US10 work.
+  Sprint 1 and Sprint 2 are kept separate: Sprint 1 changes contain only US1-US10. Sprint 2 work
+  (shade matching, product catalogue, admin, delta E, CSV enrichment, shade data) is parked in
+  openspec/sprint-2/ and is not part of any Sprint 1 task list.
 
   Sprint 1 is split across four people with independent folders:
-    P1  /cv                 colour analysis (hex -> CIELAB, ITA depth, undertone, season, palette,
-                            confidence, template explanation), selfie skin sampling with MediaPipe
-                            + OpenCV, CSV enrichment CLI
-    P2  /backend/auth       signup/login/JWT, reset link, preferences, account deletion; tables:
-                            users, password_resets, preferences; also repo, backend/main.py,
-                            docker-compose and Railway deployment
-    P3  /backend/products   profile, photo analysis and correction endpoints; products/shades admin
-                            CRUD and CSV import (Sprint 2 prep); tables: profiles, products, shades
-    P4  /frontend           Next.js app: wireframes, all user/admin screens, accessibility settings,
-                            built against a mock API until Day 4, deployed on Vercel
+    P1 Arwa    /cv                colour analysis (hex -> CIELAB, ITA depth, undertone, season,
+                                  palette, confidence, template explanation), selfie skin sampling
+                                  with MediaPipe + OpenCV
+    P2 Eshaal  /backend/auth      signup/login/JWT, reset link, preferences, account deletion;
+                                  tables: users, password_resets, preferences; also repo,
+                                  backend/main.py, docker-compose and Railway deployment
+    P3 Ayesha  /backend/profile  profile, photo analysis and correction endpoints, data deletion
+                                  hook; table: profiles
+    P4 Momina  /frontend          Next.js app: wireframes, all user screens, accessibility settings,
+                                  built against a mock API until integration, deployed on Vercel
 
   Tech stack (fixed by the SRS):
     Frontend  React / Next.js, deployed on Vercel (free tier). PWA install is optional.
     Backend   Python 3.11+, FastAPI, one app on Railway (free tier) that mounts the auth and
-              products routers.
+              profile routers.
     Database  PostgreSQL on Railway (free tier); docker-compose for local development.
     Auth      bcrypt password hashes, JWT access tokens with expiry.
     CV        MediaPipe (pre-trained, runs locally) for face detection and landmarks; OpenCV for
@@ -48,8 +49,9 @@ rules:
     - List the SRS user stories (US#) the change delivers.
     - Include a "Non-goals" section.
   tasks:
-    - Every task has an owner tag and a day, for example "[P1][Day 2]".
-    - Add the SRS story tag where one applies, for example "[P1][Day 2][US6]".
+    - Every task has an owner tag, for example "[P1]". Do not add day or date tags.
+    - Add the SRS story tag where one applies, for example "[P1][US6]".
+    - Sprint 1 task lists contain only US1-US10 work and its setup, tests and documents.
     - Include test-case and test-result tasks.
     - Leave all boxes unchecked until the work is actually done.
   specs:

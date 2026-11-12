@@ -42,7 +42,7 @@ The system SHALL classify a Lab value as `warm`, `cool`, `neutral` or `olive` us
 - **THEN** it returns the label the team recorded for that fixture
 
 #### Scenario: Rule not approved
-- **WHEN** the undertone rule has not been approved on Day 1
+- **WHEN** the undertone rule has not been approved by the team
 - **THEN** `classify_undertone` is not accepted as complete
 
 ### Requirement: Season mapping
@@ -56,17 +56,6 @@ The system SHALL map each valid undertone and each depth other than `undetermine
 - **WHEN** `map_season("warm", Depth.undetermined)` is called
 - **THEN** a `ValueError` is raised and no season is returned
 
-### Requirement: Colour distance
-The system SHALL provide `delta_e(lab1, lab2)` as the CIE76 Euclidean distance, which is nonnegative, symmetric and zero for identical values.
-
-#### Scenario: Known pair
-- **WHEN** `delta_e` is called with `(50, 0, 0)` and `(53, 4, 0)`
-- **THEN** the result is 5.0 within 1e-12
-
-#### Scenario: Non-finite input
-- **WHEN** either Lab contains NaN or infinity
-- **THEN** a `ValueError` is raised
-
 ### Requirement: Purity
 The colour functions SHALL be deterministic and SHALL NOT perform I/O or depend on a database, authentication, web framework, UI, generative AI or LLM. Only the photo module MAY depend on MediaPipe, OpenCV and NumPy.
 
@@ -76,7 +65,7 @@ The colour functions SHALL be deterministic and SHALL NOT perform I/O or depend 
 
 #### Scenario: Core without CV libraries
 - **WHEN** MediaPipe and OpenCV are not installed
-- **THEN** `hex_to_lab`, `analyze_skin` and the CSV script still import and run
+- **THEN** `hex_to_lab` and `analyze_skin` still import and run
 
 ### Requirement: Complete analysis
 The system SHALL provide `analyze_skin(skin_hex, undertone_override=None)` that returns LAB, ITA, depth, undertone, season, confidence, explanation, palette, a `corrected` flag and rule versions, and SHALL be the single analysis path for manual, swatch, photo and corrected input (US7, US8).
@@ -155,22 +144,3 @@ The system SHALL accept a JPEG or PNG image as bytes, SHALL detect exactly one f
 #### Scenario: Same output as manual entry
 - **WHEN** the hex returned from a photo is passed to `analyze_skin`, and the same hex is typed manually
 - **THEN** both analyses are identical
-
-### Requirement: CSV LAB enrichment
-As preparation for Sprint 2 shade matching, the system SHALL provide a script that reads a CSV with columns `brand,product_name,category,shade_name,hex,buy_link`, appends `lab_l,lab_a,lab_b`, preserves all source data, and publishes output only if every row is valid.
-
-#### Scenario: Valid file
-- **WHEN** the script runs on a valid CSV
-- **THEN** the output has the original columns and rows in order plus the three LAB columns
-
-#### Scenario: Deterministic
-- **WHEN** the script runs twice on the same input
-- **THEN** both outputs are byte-identical
-
-#### Scenario: Bad rows
-- **WHEN** the input has several invalid rows
-- **THEN** the script exits nonzero, reports every bad row with record number and reason, and writes no output
-
-#### Scenario: Existing destination preserved
-- **WHEN** the run fails and the output path already exists
-- **THEN** the existing file is unchanged

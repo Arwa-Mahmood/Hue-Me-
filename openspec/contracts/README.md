@@ -1,12 +1,12 @@
-# Shared contracts
+# Shared contracts - Sprint 1
 
-These files are the Day 1 agreements that let all four people work without waiting for each other. They take precedence over any change document. The requirements they implement come from the SRS (`docs/SRS.pdf`, Sprint 1 = US1-US10).
+These files are the kickoff agreements that let all four people work without waiting for each other. They take precedence over any change document. The requirements they implement come from the SRS (`docs/SRS.pdf`, Sprint 1 = US1-US10). Sprint 2 contracts are parked in `openspec/sprint-2/`.
 
 | File | Owner | Read by | Content | SRS stories |
 | --- | --- | --- | --- | --- |
-| `cv.md` | P1 | P3, P4 | CV function signatures, formulas, depth boundaries, undertone and season policy, selfie sampling, confidence, palette, explanation template, CSV enrichment, profile payload | US6-US10 |
-| `auth.md` | P2 | P3, P4 | Auth endpoints, password rules, reset link, preferences, account deletion, JWT claims, error envelope, dev-only identity header, deployment | US1-US5 |
-| `products-api.md` | P3 | P4 | Profile, photo and correction endpoints, deletion hook, product/shade/import endpoints, P3's tables, CSV import format | US5-US10 (+ Sprint 2 prep) |
+| `cv.md` | P1 Arwa | P3 Ayesha, P4 Momina | CV function signatures, formulas, depth boundaries, undertone and season policy, selfie sampling, confidence, palette, explanation template, profile payload | US6-US10 |
+| `auth.md` | P2 Eshaal | P3 Ayesha, P4 Momina | Auth endpoints, password rules, reset link, preferences, account deletion, JWT claims, error envelope, dev-only identity header, deployment | US1-US5 |
+| `profile-api.md` | P3 Ayesha | P4 Momina | Profile, photo and correction endpoints, deletion hook, `profiles` table | US5-US10 |
 
 ## Rule for changing a contract
 
@@ -22,14 +22,13 @@ These files are the Day 1 agreements that let all four people work without waiti
 - Selfies are never stored (US6).
 - Schedule: 7 weeks, 2 sprints.
 
-## Open Day 1 decisions
+## Open kickoff decisions
 
 Record the answer in `openspec/team/daily-scrum.md` and then update the contract.
 
 - [ ] Undertone thresholds and labelled fixtures (`cv.md` section 4). This blocks `classify_undertone`.
 - [ ] Season decision table (`cv.md` section 5).
-- [ ] Face landmark regions for skin sampling (`cv.md` section 8).
-- [ ] Confidence thresholds (`cv.md` section 9).
-- [ ] Wear/avoid palette and explanation template (`cv.md` section 10).
+- [ ] Face landmark regions for skin sampling (`cv.md` section 6).
+- [ ] Confidence thresholds (`cv.md` section 7).
+- [ ] Wear/avoid palette and explanation template (`cv.md` section 8).
 - [ ] Frontend mock tool (proposal: Mock Service Worker) and token storage (proposal: `localStorage`, needed for US2 "session persists across refresh").
-- [ ] Exact calendar dates for Sprint 1 and for "Day 1" to "Day 5" (see `team/README.md`).
