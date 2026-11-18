@@ -21,6 +21,6 @@ import psycopg2
 
 def get_db_connection():
     # Replace this string with YOUR actual URL from Railway
-    url = "postgresql://postgres:klwmECidvKgHFzDiJXCzPLYljefVfboS@reseau.proxy.rlwy.net:17414/railway"
+    url = "postgresql://postgres:TLizGjDYJHAYUsxUHBdhdXPUHQwDyYcg@reseau.proxy.rlwy.net:17414/railway"
     
     return psycopg2.connect(url)
