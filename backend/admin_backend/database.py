@@ -1,18 +1,26 @@
-import psycopg2
-import os
-from dotenv import load_dotenv
-from pathlib import Path
+# import psycopg2
+# import os
+# from dotenv import load_dotenv
+# from pathlib import Path
 
-# Load the .env file from the root directory
-root_dir = Path(__file__).resolve().parent.parent.parent
-env_path = root_dir / '.env'
-load_dotenv(dotenv_path=env_path)
+# # Load the .env file
+# root_dir = Path(__file__).resolve().parent.parent.parent
+# env_path = root_dir / '.env'
+# load_dotenv(dotenv_path=env_path)
+
+# def get_db_connection():
+#     # Railway provides the full connection string in DATABASE_URL
+#     database_url = os.getenv("DATABASE_URL")
+    
+#     if not database_url:
+#         raise ValueError("DATABASE_URL is not set in the .env file")
+        
+#     return psycopg2.connect(database_url)
+
+import psycopg2
 
 def get_db_connection():
-    return psycopg2.connect(
-        dbname="hueandme",          # Force the correct database name
-        user="postgres",            # Force the correct user
-        password="admin123",        # Force the correct password
-        host="localhost",
-        port="5432"
-    )
+    # Replace this string with YOUR actual URL from Railway
+    url = "postgresql://postgres:klwmECidvKgHFzDiJXCzPLYljefVfboS@reseau.proxy.rlwy.net:17414/railway"
+    
+    return psycopg2.connect(url)
