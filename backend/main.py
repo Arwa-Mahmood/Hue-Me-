@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
-
+from auth.store import init_db
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from auth.router import router as auth_router
@@ -17,4 +17,7 @@ app.include_router(auth_router)
 
 @app.on_event("startup")
 def startup():
+    init_db()
     seed_admin()
+
+...

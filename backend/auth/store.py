@@ -11,13 +11,6 @@ def _conn():
 def init_db():
     with _conn() as c:
         c.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                email TEXT PRIMARY KEY,
-                password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'user',
-                created_at TIMESTAMP DEFAULT NOW()
-            )""")
-        c.execute("""
             CREATE TABLE IF NOT EXISTS otps (
                 key TEXT PRIMARY KEY,
                 code_hash TEXT NOT NULL,
@@ -29,17 +22,22 @@ def init_db():
                 password_hash TEXT NOT NULL
             )""")
 
+_USER_COLS = ("user_id, email, password_hash, "
+              "CASE WHEN is_admin THEN 'admin' ELSE 'user' END AS role")
+
 def get_user(email):
     with _conn() as c:
         return c.execute(
-            "SELECT email, password_hash, role FROM users WHERE email = %s", (email,)
+            f"SELECT {_USER_COLS} FROM users WHERE email = %s", (email,)
         ).fetchone()
 
 def create_user(email, password_hash, role="user"):
+    name = email.split("@")[0]
     with _conn() as c:
         return c.execute(
-            "INSERT INTO users (email, password_hash, role) VALUES (%s, %s, %s) "
-            "RETURNING email, password_hash, role", (email, password_hash, role)
+            "INSERT INTO users (name, email, password_hash, is_active, is_admin) "
+            f"VALUES (%s, %s, %s, TRUE, %s) RETURNING {_USER_COLS}",
+            (name, email, password_hash, role == "admin")
         ).fetchone()
 
 def update_password(email, password_hash):
