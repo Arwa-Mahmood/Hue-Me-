@@ -7,7 +7,7 @@ def send_otp(to: str, code: str):
         print(f"[DEV] OTP for {to}: {code}")
         return
     msg = EmailMessage()
-    msg["Subject"] = "Hue&Me password reset code"
+    msg["Subject"] = "Hue&Me verification code"
     msg["From"] = os.getenv("SMTP_FROM")
     msg["To"] = to
     msg.set_content(f"Your Hue&Me code is {code}. It expires in 10 minutes.")

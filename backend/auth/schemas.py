@@ -28,3 +28,7 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class VerifyIn(BaseModel):
+    email: EmailStr
+    otp: str

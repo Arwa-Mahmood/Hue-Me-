@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from auth.schemas import SignupIn, LoginIn, ForgotIn, ResetIn, TokenOut, UserOut
+from auth.schemas import SignupIn, LoginIn, ForgotIn, ResetIn, TokenOut, UserOut, VerifyIn
 from auth.security import hash_password, verify_password, create_token
 from auth.otp import create_otp, check_otp
 from auth.email_utils import send_otp
@@ -9,12 +9,24 @@ from auth import store
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/signup", response_model=TokenOut, status_code=201)
+@router.post("/signup", status_code=202)
 def signup(data: SignupIn):
     email = data.email.lower()
     if store.get_user(email):
         raise HTTPException(409, "Email already registered")
-    user = store.create_user(email, hash_password(data.password))
+    store.save_pending(email, hash_password(data.password))
+    send_otp(email, create_otp(email, "signup"))
+    return {"message": "Verification code sent"}
+
+
+@router.post("/verify-signup", response_model=TokenOut, status_code=201)
+def verify_signup(data: VerifyIn):
+    email = data.email.lower()
+    pending = store.get_pending(email)
+    if not pending or not check_otp(email, data.otp, "signup"):
+        raise HTTPException(400, "Invalid or expired code")
+    user = store.create_user(email, pending["password_hash"])
+    store.delete_pending(email)
     return TokenOut(access_token=create_token(email, user["role"]), role=user["role"])
 
 

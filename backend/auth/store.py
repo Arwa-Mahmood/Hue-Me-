@@ -23,3 +23,14 @@ def get_otp(email):
 
 def delete_otp(email):
     _otps.pop(email, None)
+
+_pending = {}
+
+def save_pending(email, password_hash):
+    _pending[email] = {"password_hash": password_hash}
+
+def get_pending(email):
+    return _pending.get(email)
+
+def delete_pending(email):
+    _pending.pop(email, None)
