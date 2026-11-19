@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { colornames as colorNameList } from "color-name-list";
 
 type Undertone = "warm" | "cool" | "neutral" | "olive";
 
@@ -30,6 +31,17 @@ const SKIN_SWATCHES: SavedColour[] = [
   { name: "Deep Espresso", hex: "#6B4226" },
 ];
 
+const DEFAULT_SUGGESTIONS: SavedColour[] = [
+  { name: "Dusty Rose", hex: "#C96A7B" },
+  { name: "Terracotta", hex: "#E2725B" },
+  { name: "Olive Green", hex: "#556B2F" },
+  { name: "Emerald", hex: "#50C878" },
+  { name: "Navy Blue", hex: "#000080" },
+  { name: "Burgundy", hex: "#800020" },
+  { name: "Warm Beige", hex: "#F5F5DC" },
+  { name: "Espresso", hex: "#4E312D" },
+];
+
 export default function MePage() {
   const router = useRouter();
   const [user, setUser] = useState({ name: "Arwa", email: "user@hueme.app" });
@@ -37,9 +49,11 @@ export default function MePage() {
 
   const [skinHex, setSkinHex] = useState("#E0AC69");
   const [undertone, setUndertone] = useState<Undertone>("warm");
+
   const [favouriteColours, setFavouriteColours] = useState<SavedColour[]>([]);
-  const [colourLabel, setColourLabel] = useState("");
-  const [colourHex, setColourHex] = useState("#C96A7B");
+  const [colourSearch, setColourSearch] = useState("");
+  const [selectedName, setSelectedName] = useState("Dusty Rose");
+  const [selectedHex, setSelectedHex] = useState("#C96A7B");
 
   const [savedProfile, setSavedProfile] = useState<UserProfile | null>(null);
   const [saving, setSaving] = useState(false);
@@ -73,7 +87,7 @@ export default function MePage() {
           return;
         }
       } catch {
-        // Fallback to localStorage if backend endpoint isn't live yet
+        // Fallback to localStorage if backend isn't connected yet
       }
 
       const cached = localStorage.getItem("hueme_profile");
@@ -89,20 +103,66 @@ export default function MePage() {
     loadProfile();
   }, []);
 
+  // Searches 30,000+ shades from color-name-list, ranking exact/prefix matches first
+  const filteredSuggestions = useMemo(() => {
+    const q = colourSearch.trim().toLowerCase();
+    if (!q) return DEFAULT_SUGGESTIONS;
+
+    const startsWith: SavedColour[] = [];
+    const includes: SavedColour[] = [];
+
+    for (const c of colorNameList) {
+      const lower = c.name.toLowerCase();
+      if (lower === q || lower.startsWith(q)) {
+        startsWith.push({ name: c.name, hex: c.hex.toUpperCase() });
+      } else if (lower.includes(q) || c.hex.toLowerCase().includes(q)) {
+        includes.push({ name: c.name, hex: c.hex.toUpperCase() });
+      }
+      if (startsWith.length >= 12) break;
+    }
+
+    return [...startsWith, ...includes].slice(0, 12);
+  }, [colourSearch]);
+
+  const handleSelectSuggestion = (item: SavedColour) => {
+    setError(null);
+    setSelectedName(item.name);
+    setSelectedHex(item.hex);
+  };
+
+  const handleSpectrumChange = (newHex: string) => {
+    const upper = newHex.toUpperCase();
+    setSelectedHex(upper);
+    const exactMatch = colorNameList.find(
+      (c) => c.hex.toUpperCase() === upper
+    );
+    if (exactMatch) {
+      setSelectedName(exactMatch.name);
+    }
+  };
+
   const handleAddColour = () => {
     setError(null);
-    const formatted = colourHex.trim().startsWith("#")
-      ? colourHex.trim().toUpperCase()
-      : `#${colourHex.trim().toUpperCase()}`;
+    const formatted = selectedHex.trim().startsWith("#")
+      ? selectedHex.trim().toUpperCase()
+      : `#${selectedHex.trim().toUpperCase()}`;
 
     if (!/^#[0-9A-F]{6}$/.test(formatted)) {
       setError("Enter a valid 6-digit hex code (e.g. #C96A7B).");
       return;
     }
 
-    const name = colourLabel.trim() || `Shade ${favouriteColours.length + 1}`;
+    const name = selectedName.trim() || `Shade ${favouriteColours.length + 1}`;
+    const alreadyExists = favouriteColours.some(
+      (c) => c.hex === formatted && c.name.toLowerCase() === name.toLowerCase()
+    );
+    if (alreadyExists) {
+      setError(`${name} (${formatted}) is already in your list.`);
+      return;
+    }
+
     setFavouriteColours((prev) => [...prev, { name, hex: formatted }]);
-    setColourLabel("");
+    setColourSearch("");
   };
 
   const handleRemoveColour = (idx: number) => {
@@ -149,12 +209,12 @@ export default function MePage() {
       const saved: UserProfile = await res.json();
       setSavedProfile(saved);
       localStorage.setItem("hueme_profile", JSON.stringify(saved));
-      setMessage("Saved to your Hue-Me profile.");
+      setMessage("Saved to your Railway profile.");
     } catch (err: unknown) {
       setSavedProfile(payload);
       localStorage.setItem("hueme_profile", JSON.stringify(payload));
       setMessage(
-        `Saved locally (${
+        `Saved locally on this browser (connect Railway URL in .env.local to sync to DB — ${
           err instanceof Error ? err.message : "Backend offline"
         }).`
       );
@@ -276,6 +336,11 @@ export default function MePage() {
           color: #6B4437;
           margin-bottom: 8px;
         }
+        .hueme-subhint {
+          font-size: 11.5px;
+          color: #7A5548;
+          margin: -4px 0 10px;
+        }
         .hueme-swatch-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -334,10 +399,50 @@ export default function MePage() {
           font-size: 13.5px;
           outline: none;
           width: 100%;
+          box-sizing: border-box;
         }
         .hueme-text-input:focus {
           border-color: #C96A7B;
           background: #FFFFFF;
+        }
+        .hueme-suggestion-box {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 10px;
+          padding: 10px;
+          border-radius: 14px;
+          background: #FAF4EE;
+          border: 1.5px dashed #E0C7BC;
+        }
+        .hueme-suggestion-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          border-radius: 999px;
+          border: 1.5px solid #E2C9BF;
+          background: #FFFBF7;
+          color: #3B2118;
+          font-size: 11.5px;
+          cursor: pointer;
+          transition: all 0.12s ease;
+        }
+        .hueme-suggestion-pill:hover {
+          border-color: #C96A7B;
+          background: #FBE9ED;
+        }
+        .hueme-suggestion-pill.selected {
+          border-color: #3B2118;
+          background: #F9DCE2;
+          font-weight: 700;
+        }
+        .hueme-adjust-card {
+          margin-top: 10px;
+          padding: 12px;
+          border-radius: 14px;
+          background: #FDF7F2;
+          border: 1.5px solid #E8D3CA;
         }
         .hueme-tone-grid {
           display: grid;
@@ -384,7 +489,7 @@ export default function MePage() {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
-          margin-top: 10px;
+          margin-top: 12px;
         }
         .hueme-chip {
           display: inline-flex;
@@ -566,7 +671,13 @@ export default function MePage() {
                             flexShrink: 0,
                           }}
                         />
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {s.name}
                         </span>
                       </button>
@@ -579,6 +690,7 @@ export default function MePage() {
                       value={/^#[0-9A-Fa-f]{6}$/.test(skinHex) ? skinHex : "#E0AC69"}
                       onChange={(e) => setSkinHex(e.target.value.toUpperCase())}
                       className="hueme-color-picker"
+                      title="Fine-tune skin shade"
                     />
                     <input
                       type="text"
@@ -612,43 +724,116 @@ export default function MePage() {
                   </div>
                 </div>
 
-                {/* Favourite Colours */}
+                {/* Searchable 30k+ Colour Library + Fine-Tune Adjuster */}
                 <div>
                   <label className="hueme-label">
                     Colours That Look Good on Me
                   </label>
-                  <div className="hueme-input-row" style={{ marginTop: 0 }}>
-                    <input
-                      type="text"
-                      value={colourLabel}
-                      onChange={(e) => setColourLabel(e.target.value)}
-                      placeholder="Label (e.g. Dusty Rose, Espresso)"
-                      className="hueme-text-input"
-                    />
-                    <input
-                      type="color"
-                      value={
-                        /^#[0-9A-Fa-f]{6}$/.test(colourHex)
-                          ? colourHex
-                          : "#C96A7B"
-                      }
-                      onChange={(e) => setColourHex(e.target.value.toUpperCase())}
-                      className="hueme-color-picker"
-                    />
-                    <input
-                      type="text"
-                      value={colourHex}
-                      onChange={(e) => setColourHex(e.target.value)}
-                      className="hueme-text-input"
-                      style={{ width: "105px", fontFamily: "monospace", fontSize: "12.5px" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddColour}
-                      className="hueme-add-btn"
+                  <p className="hueme-subhint">
+                    Search any shade across 30,000+ named colours, pick a match, and fine-tune if needed.
+                  </p>
+
+                  <input
+                    type="text"
+                    value={colourSearch}
+                    onChange={(e) => setColourSearch(e.target.value)}
+                    placeholder="Search any shade (e.g. dusty rose, terracotta, sage, navy)..."
+                    className="hueme-text-input"
+                  />
+
+                  <div className="hueme-suggestion-box">
+                    {filteredSuggestions.length > 0 ? (
+                      filteredSuggestions.map((item) => (
+                        <button
+                          key={`${item.name}-${item.hex}`}
+                          type="button"
+                          onClick={() => handleSelectSuggestion(item)}
+                          className={`hueme-suggestion-pill ${
+                            selectedHex.toUpperCase() === item.hex &&
+                            selectedName === item.name
+                              ? "selected"
+                              : ""
+                          }`}
+                        >
+                          <span
+                            style={{
+                              width: "12px",
+                              height: "12px",
+                              borderRadius: "50%",
+                              backgroundColor: item.hex,
+                              border: "1px solid #3B2118",
+                            }}
+                          />
+                          <span>{item.name}</span>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              fontSize: "10.5px",
+                              color: "#7A5548",
+                            }}
+                          >
+                            {item.hex}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: "12px", color: "#7A5548" }}>
+                        No exact name match — adjust the shade directly below and click + Add.
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Fine-tune & Add Bar */}
+                  <div className="hueme-adjust-card">
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: "#6B4437",
+                        marginBottom: "6px",
+                      }}
                     >
-                      + Add
-                    </button>
+                      Selected Shade (adjust colour or label before adding):
+                    </span>
+                    <div className="hueme-input-row" style={{ marginTop: 0 }}>
+                      <input
+                        type="text"
+                        value={selectedName}
+                        onChange={(e) => setSelectedName(e.target.value)}
+                        placeholder="Shade name"
+                        className="hueme-text-input"
+                      />
+                      <input
+                        type="color"
+                        value={
+                          /^#[0-9A-Fa-f]{6}$/.test(selectedHex)
+                            ? selectedHex
+                            : "#C96A7B"
+                        }
+                        onChange={(e) => handleSpectrumChange(e.target.value)}
+                        className="hueme-color-picker"
+                        title="Adjust shade on spectrum"
+                      />
+                      <input
+                        type="text"
+                        value={selectedHex}
+                        onChange={(e) => setSelectedHex(e.target.value)}
+                        className="hueme-text-input"
+                        style={{
+                          width: "105px",
+                          fontFamily: "monospace",
+                          fontSize: "12.5px",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddColour}
+                        className="hueme-add-btn"
+                      >
+                        + Add
+                      </button>
+                    </div>
                   </div>
 
                   {favouriteColours.length > 0 && (
@@ -665,7 +850,13 @@ export default function MePage() {
                             }}
                           />
                           <strong style={{ fontWeight: 600 }}>{c.name}</strong>
-                          <span style={{ fontFamily: "monospace", fontSize: "11px", color: "#6B4437" }}>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              fontSize: "11px",
+                              color: "#6B4437",
+                            }}
+                          >
                             {c.hex}
                           </span>
                           <button
