@@ -8,13 +8,13 @@ def send_otp(to: str, code: str):
         return
     msg = EmailMessage()
     msg["Subject"] = "Hue&Me password reset code"
-    msg["From"] = os.getenv("SMTP_USER")
+    msg["From"] = os.getenv("SMTP_FROM")
     msg["To"] = to
     msg.set_content(f"Your Hue&Me code is {code}. It expires in 10 minutes.")
     try:
         with smtplib.SMTP(host, 587, timeout=15) as s:
             s.starttls()
-            s.login(os.getenv("SMTP_USER"), os.getenv("SMTP_PASS"))
+            s.login(os.getenv("SMTP_LOGIN"), os.getenv("SMTP_PASS"))
             s.send_message(msg)
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
