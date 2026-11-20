@@ -19,13 +19,27 @@ from admin_backend.main import app as admin_app
 from profiles.router import router as profile_router
 from profiles.store import init_profiles
 
+import os
+
+# Sites allowed to call this API: the local Next.js dev server, plus the deployed
+# frontend(s) from FRONTEND_URL (comma-separated, e.g. https://hue-me.vercel.app)
+ALLOWED_ORIGINS = ["http://localhost:3000"] + [
+    url.strip().rstrip("/") for url in os.getenv("FRONTEND_URL", "").split(",") if url.strip()
+]
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],   # P4's Next.js dev server
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+def health():
+    # Quick check that the deployed backend is up
+    return {"status": "ok"}
+
 app.include_router(auth_router)
 app.include_router(profile_router)
 
