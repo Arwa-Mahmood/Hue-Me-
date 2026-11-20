@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+from cv.color import hex_to_lab   # Arwa's colour module
 from .database import get_db_connection
 
 app = FastAPI(title="Hue&Me Admin API")
@@ -8,10 +9,17 @@ app = FastAPI(title="Hue&Me Admin API")
 class ShadeCreate(BaseModel):
     shade_name: str
     shade_hex: str
-    lab_l: float
-    lab_a: float
-    lab_b: float
+    lab_l: float | None = None
+    lab_a: float | None = None
+    lab_b: float | None = None
     undertone: str | None = None
+
+    @model_validator(mode="after")
+    def fill_lab_from_hex(self):
+        # LAB not sent (or sent as 0,0,0): calculate it from the hex code
+        if not any((self.lab_l, self.lab_a, self.lab_b)):
+            self.lab_l, self.lab_a, self.lab_b = (round(v, 2) for v in hex_to_lab(self.shade_hex))
+        return self
 
 class ProductCreate(BaseModel):
     brand: str

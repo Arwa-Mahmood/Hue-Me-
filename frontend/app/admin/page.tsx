@@ -1,7 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { API_URL, ApiError, auth, getToken } from "@/lib/api";
 
 export default function AdminPage() {
+  // Integration: only logged-in admins can use this page
+  const [allowed, setAllowed] = useState(false);
+  useEffect(() => {
+    if (!getToken()) return window.location.replace("/login");
+    auth.me()
+      .then((me) => (me.role === "admin" ? setAllowed(true) : window.location.replace("/me")))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) window.location.replace("/login");
+      });
+  }, []);
+
   const [formData, setFormData] = useState({
     brand: "",
     name: "",
@@ -38,21 +50,27 @@ export default function AdminPage() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/admin/products", {
+      const response = await fetch(`${API_URL}/admin/products`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         setMessage("✅ Product added to Railway database!");
       } else {
-        setMessage("❌ Error adding product. Check backend console.");
+        setMessage(
+          response.status === 401 || response.status === 403
+            ? "❌ Your admin session has expired. Please log in again."
+            : "❌ Error adding product. Check backend console."
+        );
       }
     } catch (error) {
       setMessage("❌ Could not connect to backend.");
     }
   };
+
+  if (!allowed) return null;
 
   return (
     <div className="min-h-screen bg-[#F5F5DC] p-8">
