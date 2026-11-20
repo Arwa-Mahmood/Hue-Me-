@@ -9,7 +9,8 @@ from auth.seed import seed_admin
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],   # P4's Next.js dev server
+    allow_origins=["http://localhost:3000","https://hue-me-silk.vercel.app"],   # P4's Next.js dev server
+    allow_origin_regex=r"https://hue-me-.*\.vercel\.app",  # Vercel preview URLs
     allow_methods=["*"],
     allow_headers=["*"],
 )
