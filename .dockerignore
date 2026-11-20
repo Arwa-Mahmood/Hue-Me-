@@ -2,7 +2,6 @@
 .git
 frontend
 docs
-openspec
 **/node_modules
 **/venv
 **/.venv
