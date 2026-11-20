@@ -131,6 +131,8 @@ async function enter(token) {
   show("home");
   $("welcome").textContent = "Welcome, " + me.email;
   $("role").textContent = "Role: " + me.role;
+  // Integration: hand over to the Next.js app (admins -> admin form, users -> ME page)
+  location.replace(me.role === "admin" ? "/admin" : "/me");
 }
 function logout() { localStorage.removeItem("token"); show("login"); }
 

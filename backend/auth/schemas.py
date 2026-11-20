@@ -22,7 +22,7 @@ class TokenOut(BaseModel):
     token_type: str = "bearer"
 
 class UserOut(BaseModel):
-    id: int
+    id: int = Field(validation_alias="user_id")  # DB column is user_id
     email: EmailStr
     role: str
 

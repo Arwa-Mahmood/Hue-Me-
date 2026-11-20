@@ -63,7 +63,7 @@ export default function MePage() {
   useEffect(() => {
     // Not logged in -> send to /login. Logged in -> confirm the token with the backend.
     if (!getToken()) {
-      router.replace("/login");
+      window.location.replace("/login"); // /login is a static page (public/auth), so use a full navigation
       return;
     }
 
@@ -78,7 +78,7 @@ export default function MePage() {
         if (err instanceof ApiError && err.status === 401) {
           // Expired or invalid token
           clearSession();
-          router.replace("/login");
+          window.location.replace("/login"); // /login is a static page (public/auth), so use a full navigation
           return;
         }
         // Backend unreachable or /auth/me failing: fall back to what we saved at login
@@ -244,7 +244,7 @@ export default function MePage() {
 
   const handleLogout = () => {
     clearSession();
-    router.replace("/login");
+    window.location.replace("/login"); // /login is a static page (public/auth), so use a full navigation
   };
 
   // Don't flash the page before we know who is logged in
