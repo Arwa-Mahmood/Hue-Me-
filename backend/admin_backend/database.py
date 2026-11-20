@@ -1,19 +1,16 @@
-import psycopg2
 import os
+import psycopg2
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load the .env file
-root_dir = Path(__file__).resolve().parent.parent.parent
-env_path = root_dir / '.env'
-load_dotenv(dotenv_path=env_path)
+# Load backend/.env (never commit it: it holds the Railway connection string)
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# Railway provides the full connection string in DATABASE_URL.
+# Shared by the whole backend: auth, profile and admin.
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    # Railway provides the full connection string in DATABASE_URL
-    # (same database as the auth module; set it in backend/.env, never in code)
-    database_url = os.getenv("DATABASE_URL")
-
-    if not database_url:
-        raise ValueError("DATABASE_URL is not set in the .env file")
-
-    return psycopg2.connect(database_url)
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL is not set in backend/.env")
+    return psycopg2.connect(DATABASE_URL)

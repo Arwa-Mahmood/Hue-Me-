@@ -1,8 +1,10 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+# backend/.env holds DATABASE_URL (Railway), JWT_SECRET and email settings. Never commit it.
+# Auth, profile and admin all use the same DATABASE_URL.
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 # Repo root on the path so the backend can use Arwa's colour module (cv/color.py)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
