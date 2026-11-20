@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { colornames as colorNameList } from "color-name-list";
+import { API_URL, ApiError, auth, clearSession, getToken } from "@/lib/api";
 
 type Undertone = "warm" | "cool" | "neutral" | "olive";
 
@@ -17,8 +18,6 @@ interface UserProfile {
   season?: string;
   saved_colours: SavedColour[];
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const SKIN_SWATCHES: SavedColour[] = [
   { name: "Porcelain", hex: "#FFDFC4" },
@@ -44,7 +43,8 @@ const DEFAULT_SUGGESTIONS: SavedColour[] = [
 
 export default function MePage() {
   const router = useRouter();
-  const [user, setUser] = useState({ name: "Arwa", email: "user@hueme.app" });
+  const [user, setUser] = useState({ name: "", email: "" });
+  const [authChecked, setAuthChecked] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(true);
 
   const [skinHex, setSkinHex] = useState("#E0AC69");
@@ -61,14 +61,33 @@ export default function MePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedName = localStorage.getItem("user_name");
-    const storedEmail = localStorage.getItem("user_email");
-    if (storedName || storedEmail) {
-      setUser({
-        name: storedName || "Arwa",
-        email: storedEmail || "user@hueme.app",
-      });
+    // Not logged in -> send to /login. Logged in -> confirm the token with the backend.
+    if (!getToken()) {
+      router.replace("/login");
+      return;
     }
+
+    const loadUser = async () => {
+      try {
+        const me = await auth.me();
+        const name = localStorage.getItem("user_name") || me.email.split("@")[0];
+        setUser({ name, email: me.email });
+        localStorage.setItem("user_email", me.email);
+        setAuthChecked(true);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          // Expired or invalid token
+          clearSession();
+          router.replace("/login");
+          return;
+        }
+        // Backend unreachable or /auth/me failing: fall back to what we saved at login
+        const email = localStorage.getItem("user_email") || "";
+        setUser({ name: localStorage.getItem("user_name") || email.split("@")[0], email });
+        setAuthChecked(true);
+      }
+    };
+    loadUser();
 
     const loadProfile = async () => {
       try {
@@ -101,7 +120,7 @@ export default function MePage() {
     };
 
     loadProfile();
-  }, []);
+  }, [router]);
 
   // Searches 30,000+ shades from color-name-list, ranking exact/prefix matches first
   const filteredSuggestions = useMemo(() => {
@@ -224,11 +243,19 @@ export default function MePage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user_name");
-    localStorage.removeItem("user_email");
-    router.push("/login");
+    clearSession();
+    router.replace("/login");
   };
+
+  // Don't flash the page before we know who is logged in
+  if (!authChecked) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#F8F1E7", display: "flex",
+        alignItems: "center", justifyContent: "center", color: "#6B4437", fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <>
