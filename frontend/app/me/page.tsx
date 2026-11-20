@@ -544,12 +544,11 @@ const ME_STYLES = `
     --ink: #3A1F1A;
     --muted: #7A6560;
     --line: #EAD7D6;
-    --field: #FDEEF2;
+    --field: rgba(255, 238, 243, 0.72);
     --field-line: #EBCFD7;
     --pink: #F2A7BE;
     --pink-hover: #EC95B0;
     --pill: #FBDDE6;
-    --card: rgba(255, 251, 249, 0.94);
     --soft-ink: #4A3430;
     min-height: 100vh;
     min-height: 100dvh;
@@ -599,13 +598,20 @@ const ME_STYLES = `
 
   .me-container { max-width: 920px; margin: 0 auto; padding: 24px 16px 0; display: flex; flex-direction: column; gap: 24px; }
 
-  /* No backdrop blur here on purpose: on Windows it makes Chrome draw the text inside without
-     smoothing (looks jagged). A near-solid card keeps the text crisp. */
+  /* Frosted glass (from your snippet: blur 14px + saturate 160%, white edge, inner highlight, shadow),
+     tuned for our light background. The blur sits on ::before, behind the content, so the text
+     itself is not drawn inside the blurred layer and stays crisp. */
   .me-card {
-    background: var(--card);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    border-radius: 24px;
-    box-shadow: 0 12px 34px rgba(140, 90, 100, 0.08), 0 1px 3px rgba(140, 90, 100, 0.05);
+    position: relative; isolation: isolate;
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 12px 32px rgba(120, 80, 110, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  .me-card::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
   }
 
   /* Profile card */

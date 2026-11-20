@@ -44,11 +44,18 @@
     max-width: 424px;
     padding: 46px 34px 38px;
     border-radius: 26px;
-    background: linear-gradient(160deg, rgba(255, 246, 250, 0.86), rgba(246, 243, 252, 0.82));
-    border: 1px solid rgba(255, 255, 255, 0.85);
-    box-shadow: 0 24px 60px rgba(150, 120, 170, 0.22), 0 2px 8px rgba(120, 80, 100, 0.06);
-    -webkit-backdrop-filter: blur(18px);
-    backdrop-filter: blur(18px);
+    /* Frosted glass, same recipe as the ME and admin pages. The blur sits on ::before, behind the
+       content, so the text is not drawn inside the blurred layer and stays crisp. A bit whiter
+       here so the makeup in the background doesn't show through the form. */
+    position: relative; isolation: isolate;
+    background: rgba(255, 255, 255, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 12px 32px rgba(120, 80, 110, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  main::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
   }
   @media (max-width: 420px) {
     main { padding: 38px 22px 30px; border-radius: 22px; }
