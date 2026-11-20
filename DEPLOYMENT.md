@@ -23,13 +23,15 @@ Deploy the backend first: the frontend needs its URL.
    | `JWT_SECRET` | A long random string (keep it the same between deploys, or everyone is logged out) |
    | `ADMIN_EMAIL` | The existing admin account's email |
    | `FRONTEND_URL` | The Vercel URL from step 2, e.g. `https://hue-me.vercel.app` (comma-separate several) |
-   | `SMTP_HOST`, `SMTP_LOGIN`, `SMTP_PASS`, `SMTP_FROM` | Eshaal's Brevo settings |
+   | `BREVO_API_KEY` | A Brevo **API key** (`xkeysib-...`, Brevo → SMTP & API → API Keys). Not the SMTP key |
+   | `SMTP_FROM` | The sender address, verified in Brevo, e.g. `Hue&Me <someone@example.com>` |
 
 4. Check: open `https://<backend-url>/health` → `{"status":"ok"}`. API docs: `/docs`.
 
-> **Email codes:** Railway blocks outgoing SMTP on its Free/Hobby plans. If codes don't arrive,
-> the backend log shows `[EMAIL ERROR]` and the code. Fix: Pro plan, or send through Brevo's
-> HTTP API instead of SMTP in `backend/auth/email_utils.py`.
+> **Email codes:** Railway blocks outgoing SMTP on its Free/Hobby plans, so the backend sends the
+> signup and reset codes through Brevo's HTTP API when `BREVO_API_KEY` is set. Without it, it falls
+> back to SMTP (`SMTP_HOST`, `SMTP_LOGIN`, `SMTP_PASS`), which works locally. If a send fails, the
+> backend log shows `[EMAIL ERROR]` with Brevo's reason, and the code.
 
 ## 2. Frontend on Vercel
 
