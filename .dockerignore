@@ -1,0 +1,12 @@
+# Only backend/ and cv/ go into the backend image
+.git
+frontend
+docs
+openspec
+**/node_modules
+**/venv
+**/.venv
+**/__pycache__
+**/*.pyc
+# Secrets: Railway variables are used instead
+**/.env

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hue&Me</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #faf6f2; margin: 0; }
+  main { max-width: 380px; margin: 60px auto; background: #fff; padding: 28px; border-radius: 12px; box-shadow: 0 2px 12px #0001; }
+  h1 { margin: 0 0 4px; font-size: 24px; } h2 { font-size: 18px; margin: 0 0 16px; }
+  input, button { width: 100%; padding: 10px; margin: 6px 0; font-size: 15px; box-sizing: border-box; border-radius: 8px; }
+  input { border: 1px solid #ccc; }
+  button { background: #b5495b; color: #fff; border: 0; cursor: pointer; }
+  a { color: #b5495b; cursor: pointer; font-size: 14px; display: block; margin-top: 10px; }
+  #msg { margin-top: 12px; font-size: 14px; min-height: 18px; }
+  .err { color: #c00; } .ok { color: #070; }
+  section { display: none; } section.active { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hue&amp;Me</h1>
+
+  <section id="login" class="active">
+    <h2>Log in</h2>
+    <input id="l-email" type="email" placeholder="Email">
+    <input id="l-pass" type="password" placeholder="Password">
+    <button onclick="login()">Log in</button>
+    <a onclick="show('signup')">Create an account</a>
+    <a onclick="show('forgot')">Forgot password?</a>
+  </section>
+
+  <section id="signup">
+    <h2>Sign up</h2>
+    <input id="s-email" type="email" placeholder="Email">
+    <input id="s-pass" type="password" placeholder="Password (8+ characters)">
+    <button onclick="signup()">Send verification code</button>
+    <a onclick="show('login')">Back to log in</a>
+  </section>
+
+  <section id="verify">
+    <h2>Enter the code we emailed you</h2>
+    <input id="v-otp" placeholder="6-digit code" maxlength="6">
+    <button onclick="verifySignup()">Verify and create account</button>
+    <a onclick="show('signup')">Back</a>
+  </section>
+
+  <section id="forgot">
+    <h2>Forgot password</h2>
+    <input id="f-email" type="email" placeholder="Email">
+    <button onclick="forgot()">Send reset code</button>
+    <a onclick="show('login')">Back to log in</a>
+  </section>
+
+  <section id="reset">
+    <h2>Reset password</h2>
+    <input id="r-otp" placeholder="6-digit code" maxlength="6">
+    <input id="r-pass" type="password" placeholder="New password (8+ characters)">
+    <button onclick="reset()">Update password</button>
+    <a onclick="show('login')">Back to log in</a>
+  </section>
+
+  <section id="home">
+    <h2 id="welcome"></h2>
+    <p id="role"></p>
+    <button onclick="logout()">Log out</button>
+  </section>
+
+  <div id="msg"></div>
+</main>
+
+<script src="/hueme-config.js"></script>
+<script>
+// Backend address comes from the app's NEXT_PUBLIC_API_URL (see app/hueme-config.js)
+const API = window.HUEME_API_URL || "http://localhost:8000";
+let pendingEmail = "";
+
+const $ = id => document.getElementById(id);
+function show(id) {
+  document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+  say("");
+}
+function say(text, ok = false) {
+  $("msg").textContent = text;
+  $("msg").className = ok ? "ok" : "err";
+}
+
+async function call(path, body, token) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = "Bearer " + token;
+  try {
+    const r = await fetch(API + path, {
+      method: body ? "POST" : "GET", headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const d = data.detail;
+      throw new Error(Array.isArray(d) ? d.map(e => e.msg).join(", ") : d || "Request failed");
+    }
+    return data;
+  } catch (e) { say(e.message); return null; }
+}
+
+async function signup() {
+  pendingEmail = $("s-email").value.trim();
+  const d = await call("/auth/signup", { email: pendingEmail, password: $("s-pass").value });
+  if (d) { show("verify"); say("Code sent. Check your inbox and Spam.", true); }
+}
+async function verifySignup() {
+  const d = await call("/auth/verify-signup", { email: pendingEmail, otp: $("v-otp").value.trim() });
+  if (d) enter(d.access_token);
+}
+async function login() {
+  const d = await call("/auth/login", { email: $("l-email").value.trim(), password: $("l-pass").value });
+  if (d) enter(d.access_token);
+}
+async function forgot() {
+  pendingEmail = $("f-email").value.trim();
+  const d = await call("/auth/forgot-password", { email: pendingEmail });
+  if (d) { show("reset"); say("If that email exists, a code was sent.", true); }
+}
+async function reset() {
+  const d = await call("/auth/reset-password",
+    { email: pendingEmail, otp: $("r-otp").value.trim(), new_password: $("r-pass").value });
+  if (d) { show("login"); say("Password updated. Log in.", true); }
+}
+async function enter(token) {
+  localStorage.setItem("token", token);
+  const me = await call("/auth/me", null, token);
+  if (!me) return logout();
+  show("home");
+  $("welcome").textContent = "Welcome, " + me.email;
+  $("role").textContent = "Role: " + me.role;
+  // Integration: hand over to the Next.js app (admins -> admin form, users -> ME page)
+  location.replace(me.role === "admin" ? "/admin" : "/me");
+}
+function logout() { localStorage.removeItem("token"); show("login"); }
+
+const saved = localStorage.getItem("token");
+if (saved) enter(saved);   // session persists across refresh (US2)
+</script>
+</body>
+</html>

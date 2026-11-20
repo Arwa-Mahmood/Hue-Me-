@@ -1,0 +1,68 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, model_validator
+from cv.color import hex_to_lab   # Arwa's colour module
+from .database import get_db_connection
+
+app = FastAPI(title="Hue&Me Admin API")
+
+# --- SCHEMAS ---
+class ShadeCreate(BaseModel):
+    shade_name: str
+    shade_hex: str
+    lab_l: float | None = None
+    lab_a: float | None = None
+    lab_b: float | None = None
+    undertone: str | None = None
+
+    @model_validator(mode="after")
+    def fill_lab_from_hex(self):
+        # LAB not sent (or sent as 0,0,0): calculate it from the hex code
+        if not any((self.lab_l, self.lab_a, self.lab_b)):
+            self.lab_l, self.lab_a, self.lab_b = (round(v, 2) for v in hex_to_lab(self.shade_hex))
+        return self
+
+class ProductCreate(BaseModel):
+    brand: str
+    name: str
+    category: str
+    product_type: str
+    buy_link: str | None = None
+    shades: list[ShadeCreate]
+
+# --- ROUTES ---
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Hue&Me Admin API"}
+
+@app.post("/admin/products", status_code=201)
+def add_product(product: ProductCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Insert Product
+        cursor.execute(
+            """INSERT INTO products (brand, name, category, product_type, buy_link) 
+               VALUES (%s, %s, %s, %s, %s) RETURNING product_id;""",
+            (product.brand, product.name, product.category, product.product_type, product.buy_link)
+        )
+        product_id = cursor.fetchone()[0]
+        
+        # 2. Insert Shades
+        for shade in product.shades:
+            cursor.execute(
+                """INSERT INTO product_shades 
+                   (product_id, shade_name, shade_hex, lab_l, lab_a, lab_b, undertone) 
+                   VALUES (%s, %s, %s, %s, %s, %s, %s);""",
+                (product_id, shade.shade_name, shade.shade_hex, shade.lab_l, shade.lab_a, shade.lab_b, shade.undertone)
+            )
+            
+        conn.commit()
+        return {"message": "Product added successfully", "product_id": product_id}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()

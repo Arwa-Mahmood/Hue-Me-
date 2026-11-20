@@ -1,0 +1,11 @@
+# Backend dependencies (auth, profile, admin). Same versions as before, without the
+# unrelated packages (TensorFlow, Jupyter, pywin32...) that break installs on Railway.
+fastapi==0.162.5
+uvicorn==0.54.0
+pydantic==2.14.3
+email-validator==2.3.0
+bcrypt==5.0.0
+PyJWT==2.15.1
+psycopg[binary]==3.3.9
+psycopg2-binary==2.9.13
+python-dotenv==1.2.3
