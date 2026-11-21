@@ -295,6 +295,14 @@ function say(text, ok = false) {
 async function call(path, body, token) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = "Bearer " + token;
+  // Lock the screen's buttons until the backend answers. Sending an email takes a few
+  // seconds, and a second tap would send a new code that cancels the first one.
+  const section = document.querySelector("section.active");
+  const buttons = section ? [...section.querySelectorAll("button")] : [];
+  const main = section && section.querySelector("button.primary");
+  const label = main && main.textContent;
+  buttons.forEach(b => b.disabled = true);
+  if (main) main.textContent = "Please wait…";
   try {
     const r = await fetch(API + path, {
       method: body ? "POST" : "GET", headers,
@@ -307,12 +315,16 @@ async function call(path, body, token) {
     }
     return data;
   } catch (e) { say(e.message); return null; }
+  finally {
+    buttons.forEach(b => b.disabled = false);
+    if (main) main.textContent = label;
+  }
 }
 
 async function signup() {
   pendingEmail = $("s-email").value.trim();
   const d = await call("/auth/signup", { email: pendingEmail, password: $("s-pass").value });
-  if (d) { show("verify"); say("Code sent. Check your inbox and Spam.", true); }
+  if (d) { show("verify"); say("Code sent. Check your inbox and Spam. If you get more than one email, use the newest code.", true); }
 }
 async function verifySignup() {
   const d = await call("/auth/verify-signup", { email: pendingEmail, otp: $("v-otp").value.trim() });
@@ -325,7 +337,7 @@ async function login() {
 async function forgot() {
   pendingEmail = $("f-email").value.trim();
   const d = await call("/auth/forgot-password", { email: pendingEmail });
-  if (d) { show("reset"); say("If that email exists, a code was sent.", true); }
+  if (d) { show("reset"); say("If that email exists, a code was sent. Use the newest code if you get more than one.", true); }
 }
 // Named resetPassword, not reset: inside a <form> handler, "reset()" means the form's own
 // built-in reset (which only clears the fields), so the old name never reached the backend.
