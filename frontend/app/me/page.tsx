@@ -402,15 +402,17 @@ export default function MePage() {
                   </div>
 
                   <div className="me-hex-row">
-                    <span className="me-hex-caption">Or fine-tune</span>
-                    <input
-                      type="color"
-                      value={/^#[0-9A-Fa-f]{6}$/.test(skinHex) ? skinHex : "#E0AC69"}
-                      onChange={(e) => setSkinHex(e.target.value.toUpperCase())}
-                      className="me-color"
-                      aria-label="Fine-tune skin shade"
-                      title="Fine-tune skin shade"
-                    />
+                    <span className="me-hex-caption">Or fine-tune on the spectrum</span>
+                    {/* Clicking the tile opens the browser's colour spectrum (shade square, hue slider, RGB, eyedropper) */}
+                    <label className="me-color-wrap" title="Pick your skin shade on the spectrum">
+                      <input
+                        type="color"
+                        value={/^#[0-9A-Fa-f]{6}$/.test(skinHex) ? skinHex : "#E0AC69"}
+                        onChange={(e) => setSkinHex(e.target.value.toUpperCase())}
+                        className="me-color"
+                        aria-label="Pick skin shade on the spectrum"
+                      />
+                    </label>
                     <input
                       type="text"
                       value={skinHex}
@@ -516,14 +518,15 @@ export default function MePage() {
                       className="me-input me-selected-name"
                       aria-label="Selected shade name"
                     />
-                    <input
-                      type="color"
-                      value={/^#[0-9A-Fa-f]{6}$/.test(selectedHex) ? selectedHex : "#C96A7B"}
-                      onChange={(e) => handleSpectrumChange(e.target.value)}
-                      className="me-color"
-                      aria-label="Adjust selected shade"
-                      title="Adjust shade on spectrum"
-                    />
+                    <label className="me-color-wrap" title="Pick a shade on the spectrum">
+                      <input
+                        type="color"
+                        value={/^#[0-9A-Fa-f]{6}$/.test(selectedHex) ? selectedHex : "#C96A7B"}
+                        onChange={(e) => handleSpectrumChange(e.target.value)}
+                        className="me-color"
+                        aria-label="Pick a shade on the spectrum"
+                      />
+                    </label>
                     <input
                       type="text"
                       value={selectedHex}
@@ -749,9 +752,25 @@ const ME_STYLES = `
 
   .me-hex-row { display: flex; align-items: center; gap: 14px; margin-top: 26px; }
   .me-hex-caption { font-size: 15px; color: var(--muted); margin-right: 4px; }
+  /* Spectrum tile: a bordered button around the colour input (like the original ME page),
+     with a small rainbow badge so it reads as "click to open the colour spectrum" */
+  .me-color-wrap {
+    position: relative; flex-shrink: 0; display: grid; place-items: center;
+    width: 46px; height: 46px; padding: 4px; border-radius: 12px; cursor: pointer;
+    background: var(--field); border: 1px solid var(--field-line);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .me-color-wrap:hover { border-color: #E39AB3; box-shadow: 0 0 0 3px rgba(242, 167, 190, 0.22); }
+  .me-color-wrap:focus-within { border-color: #C96A8A; box-shadow: 0 0 0 3px rgba(201, 106, 138, 0.25); }
+  .me-color-wrap::after {
+    content: ""; position: absolute; right: -5px; bottom: -5px; width: 16px; height: 16px;
+    border-radius: 50%; border: 2px solid #fff; pointer-events: none;
+    background: conic-gradient(#ff4d4d, #ffd23f, #4dd65f, #3fd0ff, #4d6bff, #d24dff, #ff4d4d);
+    box-shadow: 0 1px 3px rgba(58, 31, 26, 0.25);
+  }
   .me-color {
-    width: 42px; height: 42px; flex-shrink: 0; padding: 0; cursor: pointer;
-    border: 1px solid rgba(58, 31, 26, 0.12); border-radius: 8px; background: none;
+    width: 100%; height: 100%; padding: 0; cursor: pointer;
+    border: 0; border-radius: 8px; background: none;
   }
   .me-color::-webkit-color-swatch-wrapper { padding: 0; }
   .me-color::-webkit-color-swatch { border: 0; border-radius: 7px; }
@@ -803,7 +822,7 @@ const ME_STYLES = `
 
   /* "Selected shade" sits in its own soft panel so it reads as one step */
   .me-selected {
-    display: grid; grid-template-columns: 1fr 42px 130px auto;
+    display: grid; grid-template-columns: 1fr 46px 130px auto;
     gap: 12px; align-items: center; margin-top: 26px;
     padding: 18px 18px 20px; border-radius: 16px;
     background: rgba(253, 238, 242, 0.45); border: 1px solid var(--line);
@@ -860,7 +879,7 @@ const ME_STYLES = `
   @media (max-width: 760px) {
     .me-swatches { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 10px; }
     .me-segment { max-width: none; }
-    .me-selected { grid-template-columns: 42px 1fr auto; }
+    .me-selected { grid-template-columns: 46px 1fr auto; }
     .me-selected-name { grid-column: 1 / -1; }
   }
 
@@ -891,7 +910,7 @@ const ME_STYLES = `
     .me-pills { gap: 12px 10px; }
     .me-shade { height: 40px; padding: 0 12px 0 9px; font-size: 14.5px; }
     .me-pills { max-height: 300px; }
-    .me-selected { grid-template-columns: 42px 1fr; padding: 16px; }
+    .me-selected { grid-template-columns: 46px 1fr; padding: 16px; }
     .me-add { grid-column: 1 / -1; height: 44px; }
     .me-save { height: 52px; font-size: 19px; }
     .me-settings { padding: 4px 20px; }
