@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { colornames as colorNameList } from "color-name-list";
 import { API_URL, ApiError, auth, clearSession, getToken } from "@/lib/api";
+import SpectrumPicker from "@/components/SpectrumPicker";
 
 type Undertone = "warm" | "cool" | "neutral" | "olive";
 
@@ -403,16 +404,13 @@ export default function MePage() {
 
                   <div className="me-hex-row">
                     <span className="me-hex-caption">Or fine-tune on the spectrum</span>
-                    {/* Clicking the tile opens the browser's colour spectrum (shade square, hue slider, RGB, eyedropper) */}
-                    <label className="me-color-wrap" title="Pick your skin shade on the spectrum">
-                      <input
-                        type="color"
-                        value={/^#[0-9A-Fa-f]{6}$/.test(skinHex) ? skinHex : "#E0AC69"}
-                        onChange={(e) => setSkinHex(e.target.value.toUpperCase())}
-                        className="me-color"
-                        aria-label="Pick skin shade on the spectrum"
-                      />
-                    </label>
+                    {/* Tile opens our own colour spectrum (same on phone and computer) */}
+                    <SpectrumPicker
+                      value={skinHex}
+                      onChange={setSkinHex}
+                      fallback="#E0AC69"
+                      label="Pick your skin shade on the spectrum"
+                    />
                     <input
                       type="text"
                       value={skinHex}
@@ -518,15 +516,12 @@ export default function MePage() {
                       className="me-input me-selected-name"
                       aria-label="Selected shade name"
                     />
-                    <label className="me-color-wrap" title="Pick a shade on the spectrum">
-                      <input
-                        type="color"
-                        value={/^#[0-9A-Fa-f]{6}$/.test(selectedHex) ? selectedHex : "#C96A7B"}
-                        onChange={(e) => handleSpectrumChange(e.target.value)}
-                        className="me-color"
-                        aria-label="Pick a shade on the spectrum"
-                      />
-                    </label>
+                    <SpectrumPicker
+                      value={selectedHex}
+                      onChange={handleSpectrumChange}
+                      fallback="#C96A7B"
+                      label="Pick a shade on the spectrum"
+                    />
                     <input
                       type="text"
                       value={selectedHex}
@@ -752,29 +747,9 @@ const ME_STYLES = `
 
   .me-hex-row { display: flex; align-items: center; gap: 14px; margin-top: 26px; }
   .me-hex-caption { font-size: 15px; color: var(--muted); margin-right: 4px; }
-  /* Spectrum tile: a bordered button around the colour input (like the original ME page),
-     with a small rainbow badge so it reads as "click to open the colour spectrum" */
-  .me-color-wrap {
-    position: relative; flex-shrink: 0; display: grid; place-items: center;
-    width: 46px; height: 46px; padding: 4px; border-radius: 12px; cursor: pointer;
-    background: var(--field); border: 1px solid var(--field-line);
-    transition: border-color .15s, box-shadow .15s;
-  }
-  .me-color-wrap:hover { border-color: #E39AB3; box-shadow: 0 0 0 3px rgba(242, 167, 190, 0.22); }
-  .me-color-wrap:focus-within { border-color: #C96A8A; box-shadow: 0 0 0 3px rgba(201, 106, 138, 0.25); }
-  .me-color-wrap::after {
-    content: ""; position: absolute; right: -5px; bottom: -5px; width: 16px; height: 16px;
-    border-radius: 50%; border: 2px solid #fff; pointer-events: none;
-    background: conic-gradient(#ff4d4d, #ffd23f, #4dd65f, #3fd0ff, #4d6bff, #d24dff, #ff4d4d);
-    box-shadow: 0 1px 3px rgba(58, 31, 26, 0.25);
-  }
-  .me-color {
-    width: 100%; height: 100%; padding: 0; cursor: pointer;
-    border: 0; border-radius: 8px; background: none;
-  }
-  .me-color::-webkit-color-swatch-wrapper { padding: 0; }
-  .me-color::-webkit-color-swatch { border: 0; border-radius: 7px; }
-  .me-color::-moz-color-swatch { border: 0; border-radius: 7px; }
+  /* Spectrum picker tile + panel styles are shared, in app/globals.css ("Spectrum picker").
+     The details card sits above the cards after it, so an open picker is never covered. */
+  .me-details { z-index: 2; }
 
   /* Undertone segmented control */
   .me-segment {

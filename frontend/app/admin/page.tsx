@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { API_URL, ApiError, auth, clearSession, getToken } from "@/lib/api";
+import SpectrumPicker from "@/components/SpectrumPicker";
 
 const CATEGORIES = ["Foundation", "Concealer", "Lipstick", "Blush"];
 const HEX = /^#[0-9A-Fa-f]{6}$/;
@@ -194,10 +195,12 @@ export default function AdminPage() {
             <div className="ad-field">
               <span className="ad-label" id="shade-colour-label">Shade colour</span>
               <div className="ad-colour-row">
-                <span className="ad-swatch">
-                  <input type="color" value={previewHex} aria-label="Pick shade colour"
-                    onChange={(e) => setFormData({ ...formData, shade_hex: e.target.value.toUpperCase() })} />
-                </span>
+                <SpectrumPicker
+                  value={formData.shade_hex}
+                  onChange={(hex) => setFormData({ ...formData, shade_hex: hex })}
+                  fallback="#E3B98F"
+                  label="Pick the shade colour on the spectrum"
+                />
                 <input type="text" className="ad-input ad-hex" aria-labelledby="shade-colour-label"
                   value={formData.shade_hex} maxLength={7} spellCheck={false}
                   onChange={(e) => {
@@ -340,7 +343,7 @@ const AD_STYLES = `
     -webkit-backdrop-filter: blur(14px) saturate(160%);
     backdrop-filter: blur(14px) saturate(160%);
   }
-  .ad-form-card { padding: 32px 34px 30px; }
+  .ad-form-card { padding: 32px 34px 30px; z-index: 2; } /* above the preview, so an open picker is never covered */
   .ad-title { margin: 0; font-family: var(--font-young-serif), Georgia, serif; font-weight: 400; font-size: 36px; line-height: 1.1; }
   .ad-sub { margin: 8px 0 0; font-size: 15px; color: var(--muted); }
 
@@ -365,14 +368,7 @@ const AD_STYLES = `
   .ad-select svg { right: 16px; width: 18px; height: 18px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
   .ad-colour-row { display: flex; gap: 10px; }
-  .ad-swatch {
-    flex-shrink: 0; width: 46px; height: 46px; padding: 4px; border-radius: 12px;
-    background: var(--field); border: 1px solid var(--field-line);
-  }
-  .ad-swatch input { width: 100%; height: 100%; padding: 0; border: 0; border-radius: 9px; background: none; cursor: pointer; }
-  .ad-swatch input::-webkit-color-swatch-wrapper { padding: 0; }
-  .ad-swatch input::-webkit-color-swatch { border: 0; border-radius: 9px; }
-  .ad-swatch input::-moz-color-swatch { border: 0; border-radius: 9px; }
+  /* Spectrum picker styles are shared, in app/globals.css ("Spectrum picker") */
   .ad-hex { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 
   .ad-icon-input { position: relative; display: block; }
