@@ -41,6 +41,32 @@ const DEFAULT_SUGGESTIONS: SavedColour[] = [
   { name: "Espresso", hex: "#4E312D" },
 ];
 
+// How many search results to show at a time ("Show more" adds this many again)
+const SEARCH_PAGE = 40;
+
+// Every named colour as RGB, built once, used to find the closest name for any picked colour
+const NAMED_RGB = colorNameList.map((c) => {
+  const n = parseInt(c.hex.slice(1), 16);
+  return { name: c.name, hex: c.hex.toUpperCase(), r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+});
+
+// Closest named colour to a hex like "#3A7D44" (exact match wins; otherwise the nearest by
+// a perceptual RGB distance, which treats red/green/blue differences the way eyes roughly do)
+function closestNamedColour(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  let best = NAMED_RGB[0];
+  let bestDist = Infinity;
+  for (const c of NAMED_RGB) {
+    if (c.hex === hex) return c.name;
+    const rMean = (r + c.r) / 2;
+    const dr = r - c.r, dg = g - c.g, db = b - c.b;
+    const dist = (2 + rMean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rMean) / 256) * db * db;
+    if (dist < bestDist) { bestDist = dist; best = c; }
+  }
+  return best.name;
+}
+
 export default function MePage() {
   const router = useRouter();
   const [user, setUser] = useState({ name: "", email: "" });
@@ -52,6 +78,7 @@ export default function MePage() {
 
   const [favouriteColours, setFavouriteColours] = useState<SavedColour[]>([]);
   const [colourSearch, setColourSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(SEARCH_PAGE);
   const [selectedName, setSelectedName] = useState("Dusty Rose");
   const [selectedHex, setSelectedHex] = useState("#C96A7B");
 
@@ -122,26 +149,42 @@ export default function MePage() {
     loadProfile();
   }, [router]);
 
-  // Searches 30,000+ shades from color-name-list, ranking exact/prefix matches first
-  const filteredSuggestions = useMemo(() => {
+  // Searches all 30,000+ named colours and keeps EVERY match, best first:
+  // exact name → shades that END with the word ("Sage Green", "Forest Green": kinds of green)
+  // → the word anywhere else as a whole word ("Green Apple") → a word starts with it ("Greenish")
+  // → it appears anywhere ("Evergreen") or in the hex code.
+  // Shorter names come first inside each group, so common shades show up before long ones.
+  const allMatches = useMemo(() => {
     const q = colourSearch.trim().toLowerCase();
     if (!q) return DEFAULT_SUGGESTIONS;
 
-    const startsWith: SavedColour[] = [];
-    const includes: SavedColour[] = [];
+    const words = (s: string) => " " + s.replace(/[^a-z0-9]+/g, " ").trim() + " ";
+    const qWords = words(q).trim();
+    const hexQuery = q.replace(/^#/, "");
+    const groups: SavedColour[][] = [[], [], [], [], []];
 
     for (const c of colorNameList) {
       const lower = c.name.toLowerCase();
-      if (lower === q || lower.startsWith(q)) {
-        startsWith.push({ name: c.name, hex: c.hex.toUpperCase() });
-      } else if (lower.includes(q) || c.hex.toLowerCase().includes(q)) {
-        includes.push({ name: c.name, hex: c.hex.toUpperCase() });
-      }
-      if (startsWith.length >= 12) break;
+      const spaced = words(lower);
+      const item = { name: c.name, hex: c.hex.toUpperCase() };
+      if (lower === q) groups[0].push(item);
+      else if (qWords && spaced.endsWith(` ${qWords} `)) groups[1].push(item);
+      else if (qWords && spaced.includes(` ${qWords} `)) groups[2].push(item);
+      else if (qWords && spaced.includes(` ${qWords}`)) groups[3].push(item);
+      else if (lower.includes(q) || (hexQuery.length >= 3 && c.hex.toLowerCase().includes(hexQuery))) groups[4].push(item);
     }
 
-    return [...startsWith, ...includes].slice(0, 12);
+    const byLength = (a: SavedColour, b: SavedColour) =>
+      a.name.length - b.name.length || a.name.localeCompare(b.name);
+    return groups.flatMap((g) => g.sort(byLength));
   }, [colourSearch]);
+
+  const filteredSuggestions = allMatches.slice(0, visibleCount);
+
+  const handleSearchChange = (value: string) => {
+    setColourSearch(value);
+    setVisibleCount(SEARCH_PAGE); // start from the top of the new results
+  };
 
   const handleSelectSuggestion = (item: SavedColour) => {
     setError(null);
@@ -149,16 +192,18 @@ export default function MePage() {
     setSelectedHex(item.hex);
   };
 
-  const handleSpectrumChange = (newHex: string) => {
+  // Picking on the spectrum (or typing a hex) also picks a name: the exact named colour
+  // if there is one, otherwise the closest named colour. The name can still be edited.
+  const pickHex = (newHex: string) => {
     const upper = newHex.toUpperCase();
     setSelectedHex(upper);
-    const exactMatch = colorNameList.find(
-      (c) => c.hex.toUpperCase() === upper
-    );
-    if (exactMatch) {
-      setSelectedName(exactMatch.name);
+    if (/^#[0-9A-F]{6}$/.test(upper)) {
+      setError(null);
+      setSelectedName(closestNamedColour(upper));
     }
   };
+
+  const handleSpectrumChange = (newHex: string) => pickHex(newHex);
 
   const handleAddColour = () => {
     setError(null);
@@ -411,12 +456,18 @@ export default function MePage() {
                     <input
                       type="search"
                       value={colourSearch}
-                      onChange={(e) => setColourSearch(e.target.value)}
+                      onChange={(e) => handleSearchChange(e.target.value)}
                       placeholder="Search any shade (e.g. dusty rose, terracotta, sage, navy)..."
                       className="me-input"
                       aria-label="Search colours"
                     />
                   </div>
+
+                  {colourSearch.trim() && allMatches.length > 0 && (
+                    <p className="me-count" aria-live="polite">
+                      {allMatches.length.toLocaleString()} match{allMatches.length === 1 ? "" : "es"} for “{colourSearch.trim()}”
+                    </p>
+                  )}
 
                   <div className="me-pills">
                     {filteredSuggestions.length > 0 ? (
@@ -429,27 +480,34 @@ export default function MePage() {
                             type="button"
                             onClick={() => handleSelectSuggestion(item)}
                             className={`me-shade ${selected ? "selected" : ""}`}
-                            style={
-                              selected
-                                ? undefined
-                                : { backgroundColor: item.hex, color: textOn(item.hex) }
-                            }
-                            title={item.hex}
                             aria-pressed={selected}
                           >
-                            {item.name}
+                            <span className="me-dot" style={{ backgroundColor: item.hex }} />
+                            <span>{item.name}</span>
+                            <span className="me-shade-hex">{item.hex}</span>
                           </button>
                         );
                       })
                     ) : (
                       <span className="me-hint" style={{ margin: 0 }}>
-                        No exact name match — adjust the shade below and click + Add.
+                        No name matches — pick the shade on the spectrum below and click + Add.
                       </span>
+                    )}
+                    {allMatches.length > filteredSuggestions.length && (
+                      <button
+                        type="button"
+                        className="me-more"
+                        onClick={() => setVisibleCount((n) => n + SEARCH_PAGE)}
+                      >
+                        Show more ({(allMatches.length - filteredSuggestions.length).toLocaleString()} left)
+                      </button>
                     )}
                   </div>
 
                   <div className="me-selected">
-                    <span className="me-selected-label">Selected shade</span>
+                    <span className="me-selected-label">
+                      Selected shade — pick on the spectrum or edit the name and hex before adding
+                    </span>
                     <input
                       type="text"
                       value={selectedName}
@@ -469,7 +527,12 @@ export default function MePage() {
                     <input
                       type="text"
                       value={selectedHex}
-                      onChange={(e) => setSelectedHex(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value.trim();
+                        pickHex(v.startsWith("#") || !v ? v : `#${v}`);
+                      }}
+                      maxLength={7}
+                      spellCheck={false}
                       className="me-input me-hex"
                       aria-label="Selected shade hex code"
                     />
@@ -526,17 +589,6 @@ export default function MePage() {
       </div>
     </>
   );
-}
-
-// Dark text on light colour pills, white text on dark ones
-function textOn(hex: string) {
-  const n = parseInt(hex.replace("#", ""), 16);
-  if (Number.isNaN(n)) return "#3A1F1A";
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.36 ? "#3A1F1A" : "#FFFFFF";
 }
 
 const ME_STYLES = `
@@ -726,13 +778,28 @@ const ME_STYLES = `
   .me-search .me-input { height: 50px; padding-left: 48px; border-radius: 999px; }
   .me-search input::-webkit-search-cancel-button { cursor: pointer; }
 
-  .me-pills { display: flex; flex-wrap: wrap; gap: 14px 12px; margin-top: 22px; }
-  .me-shade {
-    height: 42px; padding: 0 18px; border-radius: 999px; border: 2px solid transparent;
-    font-size: 17px; white-space: nowrap; transition: transform .12s, box-shadow .12s;
+  .me-count { margin: 14px 0 0; font-size: 14px; color: var(--muted); }
+  /* Results scroll inside this box, so a search with hundreds of matches doesn't flood the page */
+  .me-pills {
+    display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px;
+    margin-top: 12px; max-height: 280px; overflow-y: auto; padding: 4px 4px 6px 2px;
+    overscroll-behavior: contain;
   }
-  .me-shade:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(58, 31, 26, 0.12); }
-  .me-shade.selected { background: #FCE6EC; color: var(--ink); border-color: var(--ink); }
+  /* Light pill with a colour dot, the name and the hex code (as in the original ME page) */
+  .me-shade {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 40px; padding: 0 14px 0 10px; border-radius: 999px;
+    border: 1.5px solid var(--field-line); background: rgba(255, 255, 255, 0.66);
+    font-size: 15px; white-space: nowrap; transition: border-color .12s, background .12s;
+  }
+  .me-shade:hover { border-color: #E39AB3; background: #FFF7F9; }
+  .me-shade.selected { border-color: var(--ink); background: #FCE6EC; font-weight: 600; }
+  .me-shade-hex { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+  .me-more {
+    height: 40px; padding: 0 16px; border-radius: 999px;
+    border: 1.5px dashed #D9BFC6; background: transparent; color: var(--soft-ink); font-size: 14px;
+  }
+  .me-more:hover { background: rgba(255, 255, 255, 0.6); }
 
   /* "Selected shade" sits in its own soft panel so it reads as one step */
   .me-selected {
@@ -822,7 +889,8 @@ const ME_STYLES = `
     .me-hex-caption { width: 100%; }
     .me-segment button { height: 42px; font-size: 15px; }
     .me-pills { gap: 12px 10px; }
-    .me-shade { height: 40px; padding: 0 16px; font-size: 15px; }
+    .me-shade { height: 40px; padding: 0 12px 0 9px; font-size: 14.5px; }
+    .me-pills { max-height: 300px; }
     .me-selected { grid-template-columns: 42px 1fr; padding: 16px; }
     .me-add { grid-column: 1 / -1; height: 44px; }
     .me-save { height: 52px; font-size: 19px; }
