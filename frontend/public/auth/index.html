@@ -238,7 +238,7 @@
 
   <section id="reset">
     <h2>Reset password</h2>
-    <form onsubmit="event.preventDefault(); reset()">
+    <form onsubmit="event.preventDefault(); resetPassword()">
       <input id="r-otp" placeholder="6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required>
       <div class="pw">
         <input id="r-pass" type="password" placeholder="New password (8+ characters)" autocomplete="new-password" minlength="8" required>
@@ -327,7 +327,9 @@ async function forgot() {
   const d = await call("/auth/forgot-password", { email: pendingEmail });
   if (d) { show("reset"); say("If that email exists, a code was sent.", true); }
 }
-async function reset() {
+// Named resetPassword, not reset: inside a <form> handler, "reset()" means the form's own
+// built-in reset (which only clears the fields), so the old name never reached the backend.
+async function resetPassword() {
   const d = await call("/auth/reset-password",
     { email: pendingEmail, otp: $("r-otp").value.trim(), new_password: $("r-pass").value });
   if (d) { show("login"); say("Password updated. Log in.", true); }
